@@ -1,1 +1,10 @@
-
+{
+  "piat_inicial": {
+    "nombre": "PIAT inicial",
+    "secciones": []
+  },
+  "piat_revision": {
+    "nombre": "PIAT de revisión",
+    "secciones": []
+  }
+}
