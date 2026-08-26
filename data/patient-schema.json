@@ -1,0 +1,74 @@
+{
+  "version": 1,
+
+  "identificacion": {
+    "nh": null,
+    "nombre": null,
+    "apellidos": null,
+    "fecha_nacimiento": null,
+    "sexo": null
+  },
+
+  "diagnostico": {
+    "diagnostico_funcional_odat": [],
+    "diagnostico_principal_cait": null,
+    "otros_diagnosticos": []
+  },
+
+  "salud": {
+    "informacion_medica": null,
+    "antecedentes_personales": null,
+    "antecedentes_familiares": null,
+    "otros_datos_salud": null,
+    "centro_salud": null,
+    "seguimientos_especialistas": [],
+    "medicacion": [],
+    "alergias": []
+  },
+
+  "escolarizacion": {
+    "centro": null,
+    "curso": null,
+    "modalidad": null,
+    "apoyos": []
+  },
+
+  "desarrollo_y_contexto": {
+    "estado_fisico_general": null,
+    "aspectos_emocionales_menor": null,
+    "aspectos_emocionales_cuidadores": null,
+    "entorno_familiar": null,
+    "conducta": null,
+    "sociabilidad": null
+  },
+
+  "familia": {
+    "composicion_familiar": null,
+    "preocupaciones_actuales": null,
+    "prioridades": null
+  },
+
+  "apoyo_profesional": {
+    "profesional_referencia": null,
+    "profesionales": [],
+    "intervenciones_externas": []
+  },
+
+  "evaluaciones": [],
+
+  "objetivos": {
+    "actuales": [],
+    "conseguidos": [],
+    "en_proceso": [],
+    "historico": []
+  },
+
+  "documentos": [],
+
+  "informacion_adicional": [],
+
+  "metadatos": {
+    "fecha_creacion": null,
+    "ultima_actualizacion": null
+  }
+}
