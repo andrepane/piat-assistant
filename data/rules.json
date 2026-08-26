@@ -1,1 +1,148 @@
+{
+  "general": {
+    "idioma": "es",
+    "tipo_documento": "PIAT",
+    "estilo": {
+      "tono": "clinico_claro_directo",
+      "evitar_repeticiones": true,
+      "evitar_afirmaciones_no_sustentadas": true,
+      "priorizar_funcionalidad": true,
+      "mantener_coherencia_entre_apartados": true
+    }
+  },
 
+  "piat_inicial": {
+    "objetivo": "describir la situacion actual del menor y establecer los objetivos iniciales de intervencion",
+
+    "pruebas_estandarizadas": {
+      "mostrar_resultados": true,
+      "interpretar_resultados": true,
+      "comparar_con_evaluaciones_previas": false,
+      "interpretacion": {
+        "describir_perfil_global": true,
+        "identificar_areas_mas_afectadas": true,
+        "identificar_fortalezas_relativas": true,
+        "relacionar_con_edad_cronologica": true
+      }
+    },
+
+    "exploracion_cualitativa": {
+      "areas": [
+        "motor",
+        "cognitivo",
+        "comunicativo",
+        "adaptativo"
+      ],
+      "usar_informacion_de": [
+        "observacion_clinica",
+        "familia",
+        "escuela",
+        "resultados_pruebas"
+      ]
+    },
+
+    "objetivos": {
+      "incluir_conseguidos": false,
+      "incluir_en_proceso": false,
+      "generar_objetivos_actuales": true,
+      "derivar_objetivos_de": [
+        "dificultades_actuales",
+        "resultados_pruebas",
+        "exploracion_cualitativa",
+        "preocupaciones_familia"
+      ]
+    }
+  },
+
+  "piat_revision": {
+    "objetivo": "describir la evolucion desde la evaluacion anterior y actualizar los objetivos de intervencion",
+
+    "usar_informe_anterior": true,
+    "usar_evaluacion_anterior": true,
+    "usar_evaluacion_actual": true,
+
+    "comparacion": {
+      "comparar_resultados_pruebas": true,
+      "comparar_edad_equivalente": true,
+      "comparar_percentiles": true,
+      "comparar_puntuaciones_directas": true,
+      "detectar_mejorias": true,
+      "detectar_estabilidad": true,
+      "detectar_dificultades_persistentes": true,
+      "detectar_nuevas_dificultades": true
+    },
+
+    "interpretacion": {
+      "explicar_evolucion_global": true,
+      "destacar_areas_con_mayor_mejoria": true,
+      "destacar_areas_que_siguen_afectadas": true,
+      "evitar_decir_mejoria_solo_por_aumento_de_puntuacion_directa": true,
+      "considerar_edad_cronologica_actual": true,
+      "relacionar_resultados_con_funcionamiento_clinico": true
+    },
+
+    "exploracion_cualitativa": {
+      "actualizar_solo_lo_necesario": true,
+      "comparar_con_informe_anterior": true,
+      "usar_expresiones_de_evolucion": true,
+      "areas": [
+        "motor",
+        "cognitivo",
+        "comunicativo",
+        "adaptativo"
+      ]
+    },
+
+    "objetivos": {
+      "clasificar_objetivos_previos": true,
+      "categorias": [
+        "conseguido",
+        "en_proceso",
+        "no_conseguido"
+      ],
+      "generar_objetivos_nuevos": true,
+      "mantener_objetivos_relevantes": true,
+      "eliminar_objetivos_ya_superados": true,
+      "adaptar_objetivos_a_dificultades_actuales": true
+    }
+  },
+
+  "battelle": {
+    "areas": [
+      "personal_social",
+      "adaptativa",
+      "motora",
+      "motora_gruesa",
+      "motora_fina",
+      "comunicacion",
+      "comunicacion_receptiva",
+      "comunicacion_expresiva",
+      "cognitiva",
+      "total"
+    ],
+
+    "datos": [
+      "puntuacion_directa",
+      "percentil",
+      "edad_equivalente"
+    ],
+
+    "reglas_interpretacion": {
+      "no_interpretar_puntuacion_directa_aislada": true,
+      "comparar_con_edad_cronologica": true,
+      "usar_percentil_para_contextualizar": true,
+      "usar_edad_equivalente_para_describir_perfil": true,
+      "distinguir_comprension_y_expresion": true,
+      "distinguir_motricidad_gruesa_y_fina": true
+    }
+  },
+
+  "seguridad_clinica": {
+    "no_inventar_datos": true,
+    "no_inventar_diagnosticos": true,
+    "no_inventar_resultados": true,
+    "no_asumir_objetivo_conseguido_sin_evidencia": true,
+    "marcar_informacion_insuficiente": true,
+    "priorizar_datos_del_informe_mas_reciente": true
+  }
+}
