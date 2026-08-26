@@ -9,15 +9,46 @@
 
 <body>
 
-  <header class="app-header">
+  <section id="loginView" class="auth-view">
+  <div class="card auth-card">
+    <h2>Acceso</h2>
+
+    <div class="form-group">
+      <label for="loginEmail">Correo electrónico</label>
+      <input
+        type="email"
+        id="loginEmail"
+        autocomplete="email"
+        placeholder="tu@email.com"
+      >
+    </div>
+
+    <div class="form-group">
+      <label for="loginPassword">Contraseña</label>
+      <input
+        type="password"
+        id="loginPassword"
+        autocomplete="current-password"
+        placeholder="Contraseña"
+      >
+    </div>
+
+    <button id="loginButton" type="button">
+      Entrar
+    </button>
+
+    <p id="loginStatus"></p>
+  </div>
+</section>
+  
+  <header id="appHeader" class="app-header" hidden>
     <div>
       <h1>PIAT Assistant</h1>
       <p>Gestión documental y generación asistida de PIAT</p>
     </div>
   </header>
 
-  <main class="app-main">
-
+<main id="appMain" class="app-main" hidden>
     <!-- PANTALLA PRINCIPAL -->
     <section id="patientsView">
 
