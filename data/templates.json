@@ -1,10 +1,88 @@
 {
   "piat_inicial": {
-    "nombre": "PIAT inicial",
-    "secciones": []
+    "titulo": "PLAN DE INTERVENCIÓN DE ATENCIÓN TEMPRANA INICIAL (PIAT)",
+    "secciones": [
+      "informacion_diagnostica_y_medica",
+      "antecedentes_personales",
+      "antecedentes_familiares",
+      "otros_datos_salud",
+      "datos_escolarizacion",
+      "aspectos_biopsicosociales",
+      "red_apoyo_profesional",
+      "exploracion_pruebas",
+      "exploracion_cualitativa",
+      "preocupaciones_familia",
+      "objetivos_actuales",
+      "familia",
+      "entorno",
+      "profesionales",
+      "sesiones_pautadas",
+      "materiales_recursos",
+      "firmas"
+    ]
   },
+
   "piat_revision": {
-    "nombre": "PIAT de revisión",
-    "secciones": []
+    "titulo": "PLAN DE INTERVENCIÓN DE ATENCIÓN TEMPRANA DE REVISIÓN (PIAT)",
+    "secciones": [
+      "informacion_diagnostica_y_medica",
+      "antecedentes_personales",
+      "antecedentes_familiares",
+      "otros_datos_salud",
+      "datos_escolarizacion",
+      "aspectos_biopsicosociales",
+      "red_apoyo_profesional",
+      "exploracion_pruebas",
+      "interpretacion_evolucion",
+      "exploracion_cualitativa",
+      "preocupaciones_familia",
+      "objetivos_conseguidos",
+      "objetivos_en_proceso",
+      "objetivos_actuales",
+      "familia",
+      "entorno",
+      "profesionales",
+      "sesiones_pautadas",
+      "materiales_recursos",
+      "firmas"
+    ]
+  },
+
+  "bloques": {
+    "informacion_diagnostica_y_medica": [
+      "diagnostico_funcional_odat",
+      "diagnostico_principal_cait",
+      "informacion_medica"
+    ],
+
+    "aspectos_biopsicosociales": [
+      "estado_fisico_general",
+      "aspectos_emocionales_menor",
+      "aspectos_emocionales_cuidadores",
+      "consideraciones_entorno_familiar",
+      "conducta",
+      "sociabilidad"
+    ],
+
+    "exploracion_pruebas": [
+      "nombre_prueba",
+      "fecha_administracion",
+      "edad_cronologica",
+      "tabla_resultados",
+      "interpretacion"
+    ],
+
+    "exploracion_cualitativa": [
+      "desarrollo_motor",
+      "desarrollo_cognitivo",
+      "desarrollo_comunicativo",
+      "desarrollo_adaptativo"
+    ],
+
+    "objetivos_actuales": [
+      "menor",
+      "familia",
+      "entorno"
+    ]
   }
 }
