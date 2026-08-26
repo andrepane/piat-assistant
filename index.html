@@ -12,70 +12,116 @@
   <header class="app-header">
     <div>
       <h1>PIAT Assistant</h1>
-      <p>Generación asistida de PIAT iniciales y de revisión</p>
+      <p>Gestión documental y generación asistida de PIAT</p>
     </div>
   </header>
 
   <main class="app-main">
 
-    <section class="card">
-      <h2>Nuevo PIAT</h2>
+    <!-- PANTALLA PRINCIPAL -->
+    <section id="patientsView">
 
-      <div class="form-group">
-        <label for="piatType">Tipo de informe</label>
-        <select id="piatType">
-          <option value="">Selecciona un tipo</option>
-          <option value="inicial">PIAT inicial</option>
-          <option value="revision">PIAT de revisión</option>
-        </select>
+      <div class="page-heading">
+        <div>
+          <h2>Pacientes</h2>
+          <p>Gestiona la información clínica y documental de tus pacientes.</p>
+        </div>
+
+        <button id="newPatientButton" type="button">
+          + Nuevo paciente
+        </button>
       </div>
 
-      <div class="form-group">
-        <label for="patientName">Nombre del paciente</label>
-        <input
-          type="text"
-          id="patientName"
-          placeholder="Ej. Alejandro Tercero González"
-        >
-      </div>
+      <section class="card">
+        <div id="patientsEmpty">
+          <h3>Todavía no hay pacientes</h3>
+          <p>
+            Crea un paciente importando la documentación que ya tengas.
+            La aplicación intentará extraer automáticamente la información disponible.
+          </p>
+        </div>
 
-      <div class="form-group">
-        <label for="birthDate">Fecha de nacimiento</label>
-        <input
-          type="date"
-          id="birthDate"
-        >
-      </div>
+        <div id="patientsList"></div>
+      </section>
 
-      <div class="form-group">
-        <label for="previousPiat">PIAT anterior</label>
-        <input
-          type="file"
-          id="previousPiat"
-          accept=".pdf,.doc,.docx"
-        >
-        <small>
-          Se utilizará principalmente en los PIAT de revisión.
-        </small>
-      </div>
-
-      <div class="form-group">
-        <label for="currentAssessment">Evaluación o resultados actuales</label>
-        <input
-          type="file"
-          id="currentAssessment"
-          accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
-        >
-      </div>
-
-      <button id="continueButton" type="button">
-        Continuar
-      </button>
     </section>
 
-    <section class="card">
-      <h2>Estado</h2>
-      <p id="status">Esperando datos del paciente.</p>
+
+    <!-- NUEVO PACIENTE -->
+    <section id="newPatientView" hidden>
+
+      <div class="page-heading">
+        <div>
+          <h2>Nuevo paciente</h2>
+          <p>
+            Sube la documentación disponible. No es necesario generar ningún PIAT ahora.
+          </p>
+        </div>
+      </div>
+
+      <section class="card">
+
+        <div class="form-group">
+          <label for="patientName">Nombre del paciente</label>
+          <input
+            type="text"
+            id="patientName"
+            placeholder="Nombre y apellidos"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="patientNH">Número de historia (opcional)</label>
+          <input
+            type="text"
+            id="patientNH"
+            placeholder="Ej. 2353"
+          >
+        </div>
+
+        <div class="form-group">
+          <label for="patientDocuments">Documentación disponible</label>
+
+          <input
+            type="file"
+            id="patientDocuments"
+            accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
+            multiple
+          >
+
+          <small>
+            Puedes seleccionar varios documentos: PIAT anteriores,
+            evaluaciones, informes clínicos, escolares u otros documentos relevantes.
+          </small>
+        </div>
+
+        <div id="selectedDocuments"></div>
+
+        <div class="actions">
+          <button id="cancelPatientButton" type="button" class="secondary-button">
+            Cancelar
+          </button>
+
+          <button id="analyzePatientButton" type="button">
+            Analizar documentación
+          </button>
+        </div>
+
+      </section>
+
+      <section class="card">
+        <h2>¿Qué ocurrirá después?</h2>
+        <p>
+          La aplicación analizará los documentos e intentará construir automáticamente
+          la ficha del paciente.
+        </p>
+        <p>
+          Antes de guardar nada podrás revisar la información encontrada,
+          completar datos manualmente, subir documentación adicional o dejar
+          campos sin rellenar.
+        </p>
+      </section>
+
     </section>
 
   </main>
