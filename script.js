@@ -1,57 +1,83 @@
-const piatType = document.getElementById("piatType");
+const patientsView = document.getElementById("patientsView");
+const newPatientView = document.getElementById("newPatientView");
+
+const newPatientButton = document.getElementById("newPatientButton");
+const cancelPatientButton = document.getElementById("cancelPatientButton");
+const analyzePatientButton = document.getElementById("analyzePatientButton");
+
 const patientName = document.getElementById("patientName");
-const birthDate = document.getElementById("birthDate");
-const previousPiat = document.getElementById("previousPiat");
-const currentAssessment = document.getElementById("currentAssessment");
-const continueButton = document.getElementById("continueButton");
-const status = document.getElementById("status");
+const patientNH = document.getElementById("patientNH");
+const patientDocuments = document.getElementById("patientDocuments");
+const selectedDocuments = document.getElementById("selectedDocuments");
 
-function updatePreviousPiatVisibility() {
-  const previousPiatGroup = previousPiat.closest(".form-group");
-
-  if (piatType.value === "revision") {
-    previousPiatGroup.style.display = "block";
-  } else {
-    previousPiatGroup.style.display = "none";
-    previousPiat.value = "";
-  }
+function showPatientsView() {
+  newPatientView.hidden = true;
+  patientsView.hidden = false;
 }
 
-piatType.addEventListener("change", updatePreviousPiatVisibility);
+function showNewPatientView() {
+  patientsView.hidden = true;
+  newPatientView.hidden = false;
+}
 
-updatePreviousPiatVisibility();
+function resetPatientForm() {
+  patientName.value = "";
+  patientNH.value = "";
+  patientDocuments.value = "";
+  selectedDocuments.innerHTML = "";
+}
 
-continueButton.addEventListener("click", () => {
-  const type = piatType.value;
-  const name = patientName.value.trim();
-  const birth = birthDate.value;
-  const previousFile = previousPiat.files[0];
-  const assessmentFile = currentAssessment.files[0];
+newPatientButton.addEventListener("click", () => {
+  resetPatientForm();
+  showNewPatientView();
+});
 
-  if (!type) {
-    status.textContent = "Selecciona el tipo de PIAT.";
+cancelPatientButton.addEventListener("click", () => {
+  resetPatientForm();
+  showPatientsView();
+});
+
+patientDocuments.addEventListener("change", () => {
+  const files = Array.from(patientDocuments.files);
+
+  selectedDocuments.innerHTML = "";
+
+  if (files.length === 0) {
     return;
   }
+
+  const title = document.createElement("p");
+  title.textContent = `${files.length} documento(s) seleccionado(s):`;
+  selectedDocuments.appendChild(title);
+
+  const list = document.createElement("ul");
+
+  files.forEach((file) => {
+    const item = document.createElement("li");
+    item.textContent = file.name;
+    list.appendChild(item);
+  });
+
+  selectedDocuments.appendChild(list);
+});
+
+analyzePatientButton.addEventListener("click", () => {
+  const name = patientName.value.trim();
+  const files = Array.from(patientDocuments.files);
 
   if (!name) {
-    status.textContent = "Introduce el nombre del paciente.";
+    alert("Introduce el nombre del paciente.");
     return;
   }
 
-  if (!birth) {
-    status.textContent = "Introduce la fecha de nacimiento.";
+  if (files.length === 0) {
+    alert("Sube al menos un documento del paciente.");
     return;
   }
 
-  if (!assessmentFile) {
-    status.textContent = "Adjunta la evaluación o los resultados actuales.";
-    return;
-  }
-
-  if (type === "revision" && !previousFile) {
-    status.textContent = "Para un PIAT de revisión, adjunta el PIAT anterior.";
-    return;
-  }
-
-  status.textContent = "Datos básicos correctos. Preparado para el siguiente paso.";
+  alert(
+    `Preparado para analizar ${files.length} documento(s) de ${name}.`
+  );
 });
+
+showPatientsView();
