@@ -6,6 +6,21 @@ const currentAssessment = document.getElementById("currentAssessment");
 const continueButton = document.getElementById("continueButton");
 const status = document.getElementById("status");
 
+function updatePreviousPiatVisibility() {
+  const previousPiatGroup = previousPiat.closest(".form-group");
+
+  if (piatType.value === "revision") {
+    previousPiatGroup.style.display = "block";
+  } else {
+    previousPiatGroup.style.display = "none";
+    previousPiat.value = "";
+  }
+}
+
+piatType.addEventListener("change", updatePreviousPiatVisibility);
+
+updatePreviousPiatVisibility();
+
 continueButton.addEventListener("click", () => {
   const type = piatType.value;
   const name = patientName.value.trim();
