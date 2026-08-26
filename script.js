@@ -1,6 +1,8 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import {
-  getAuth
+  getAuth,
+  signInWithEmailAndPassword,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 
 const firebaseConfig = {
@@ -14,6 +16,45 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const loginView = document.getElementById("loginView");
+const appHeader = document.getElementById("appHeader");
+const appMain = document.getElementById("appMain");
+
+const loginEmail = document.getElementById("loginEmail");
+const loginPassword = document.getElementById("loginPassword");
+const loginButton = document.getElementById("loginButton");
+const loginStatus = document.getElementById("loginStatus");
+
+loginButton.addEventListener("click", async () => {
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value;
+
+  loginStatus.textContent = "";
+
+  if (!email || !password) {
+    loginStatus.textContent = "Introduce correo y contraseña.";
+    return;
+  }
+
+  try {
+    await signInWithEmailAndPassword(auth, email, password);
+  } catch (error) {
+    console.error(error);
+    loginStatus.textContent = "No se ha podido iniciar sesión.";
+  }
+});
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    loginView.hidden = true;
+    appHeader.hidden = false;
+    appMain.hidden = false;
+  } else {
+    loginView.hidden = false;
+    appHeader.hidden = true;
+    appMain.hidden = true;
+  }
+});
 
 const patientsView = document.getElementById("patientsView");
 const newPatientView = document.getElementById("newPatientView");
