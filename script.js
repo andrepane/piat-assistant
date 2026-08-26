@@ -126,8 +126,9 @@ patientDocuments.addEventListener("change", () => {
   selectedDocuments.appendChild(list);
 });
 
-analyzePatientButton.addEventListener("click", () => {
+analyzePatientButton.addEventListener("click", async () => {
   const name = patientName.value.trim();
+  const nh = patientNH.value.trim();
   const files = Array.from(patientDocuments.files);
 
   if (!name) {
@@ -140,9 +141,48 @@ analyzePatientButton.addEventListener("click", () => {
     return;
   }
 
-  alert(
-    `Preparado para analizar ${files.length} documento(s) de ${name}.`
-  );
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert("Debes iniciar sesión.");
+    return;
+  }
+
+  try {
+    analyzePatientButton.disabled = true;
+    analyzePatientButton.textContent = "Guardando...";
+
+    const patientData = {
+      userId: user.uid,
+      nombre: name,
+      nh: nh || null,
+      documentos: files.map((file) => ({
+        nombre: file.name,
+        tipo: file.type || null,
+        tamano: file.size
+      })),
+      estado: "pendiente_analisis",
+      fechaCreacion: serverTimestamp(),
+      ultimaActualizacion: serverTimestamp()
+    };
+
+    const docRef = await addDoc(
+      collection(db, "patients"),
+      patientData
+    );
+
+    alert(`Paciente creado correctamente. ID: ${docRef.id}`);
+
+    resetPatientForm();
+    showPatientsView();
+
+  } catch (error) {
+    console.error(error);
+    alert("No se ha podido crear el paciente.");
+  } finally {
+    analyzePatientButton.disabled = false;
+    analyzePatientButton.textContent = "Analizar documentación";
+  }
 });
 
 showPatientsView();
