@@ -1,0 +1,76 @@
+{
+  "version": 1,
+
+  "documentos_admitidos": {
+    "tipos": [
+      "piat_inicial",
+      "piat_revision",
+      "battelle",
+      "informe_clinico",
+      "informe_medico",
+      "informe_escolar",
+      "informe_logopedico",
+      "informe_psicologico",
+      "otro"
+    ],
+    "formatos": [
+      "pdf",
+      "doc",
+      "docx",
+      "xlsx",
+      "xls",
+      "csv"
+    ],
+    "permitir_varios_documentos": true
+  },
+
+  "procesamiento": {
+    "detectar_tipo_documento_automaticamente": true,
+    "extraer_informacion_automaticamente": true,
+    "no_inventar_informacion": true,
+    "conservar_documento_original": true,
+    "conservar_fecha_documento": true,
+    "conservar_fuente_de_cada_dato": true
+  },
+
+  "estado_dato": {
+    "valores": [
+      "confirmado",
+      "dudoso",
+      "contradictorio",
+      "no_encontrado"
+    ],
+    "mostrar_al_usuario_antes_de_guardar": true
+  },
+
+  "informacion_no_encontrada": {
+    "permitir_rellenar_manualmente": true,
+    "permitir_subir_otro_documento": true,
+    "permitir_dejar_vacio": true,
+    "prohibido_completar_por_inferencia": true
+  },
+
+  "actualizacion": {
+    "no_sobrescribir_automaticamente": true,
+    "priorizar_informacion_mas_reciente": true,
+    "conservar_historico": true,
+    "detectar_cambios": true,
+    "detectar_contradicciones": true,
+    "solicitar_revision_si_hay_conflicto": true
+  },
+
+  "evaluaciones": {
+    "conservar_todas": true,
+    "ordenar_cronologicamente": true,
+    "permitir_comparacion": true,
+    "no_sustituir_evaluacion_anterior": true
+  },
+
+  "piat": {
+    "conservar_todos": true,
+    "distinguir_inicial_y_revision": true,
+    "identificar_piAT_mas_reciente": true,
+    "extraer_objetivos": true,
+    "conservar_historico_objetivos": true
+  }
+}
