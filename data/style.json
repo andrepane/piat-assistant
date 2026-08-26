@@ -1,0 +1,155 @@
+{
+  "tono_general": {
+    "registro": "clinico_profesional",
+    "estilo": "claro_directo_funcional",
+    "nivel_detalle": "medio",
+    "evitar_lenguaje_excesivamente_tecnico": true,
+    "evitar_redundancias": true,
+    "evitar_frases_vagas": true
+  },
+
+  "redaccion": {
+    "preferir_frases": [
+      "se observa",
+      "se aprecia",
+      "presenta",
+      "muestra",
+      "continúa",
+      "persiste",
+      "ha mejorado",
+      "se mantiene",
+      "se encuentra en proceso"
+    ],
+
+    "evitar_frases": [
+      "evoluciona muy bien",
+      "va genial",
+      "presenta muchísima mejoría",
+      "todo está dentro de la normalidad"
+    ],
+
+    "principios": {
+      "describir_hechos_antes_que_valoraciones": true,
+      "relacionar_resultados_con_funcionamiento": true,
+      "explicar_mejorias_concretas": true,
+      "explicar_dificultades_persistentes": true,
+      "priorizar_lenguaje_funcional": true
+    }
+  },
+
+  "interpretacion_battelle": {
+    "estructura_preferida": [
+      "situacion_global",
+      "areas_con_mejor_rendimiento",
+      "areas_mas_afectadas",
+      "relacion_con_edad_cronologica",
+      "implicacion_funcional"
+    ],
+
+    "estilo": {
+      "longitud": "breve",
+      "evitar_enumerar_todas_las_puntuaciones": true,
+      "destacar_solo_hallazgos_relevantes": true
+    }
+  },
+
+  "revision": {
+    "expresiones_evolucion": [
+      "se observa una evolucion favorable respecto a la valoracion anterior",
+      "se aprecian avances respecto a valoraciones previas",
+      "continua siendo el area mas afectada",
+      "persisten dificultades",
+      "se mantiene un desfase",
+      "ha aumentado",
+      "ha mejorado",
+      "continua precisando apoyo"
+    ],
+
+    "estructura_preferida": [
+      "indicar_evolucion_global",
+      "describir_avances",
+      "indicar_dificultades_que_persisten",
+      "relacionar_con_objetivos",
+      "actualizar_objetivos"
+    ]
+  },
+
+  "exploracion_cualitativa": {
+    "motor": {
+      "longitud": "breve",
+      "centrarse_en": [
+        "funcionalidad",
+        "coordinacion",
+        "motricidad_fina",
+        "autonomia_motora"
+      ]
+    },
+
+    "cognitivo": {
+      "centrarse_en": [
+        "atencion",
+        "comprension_de_consignas",
+        "impulsividad",
+        "flexibilidad",
+        "aprendizaje",
+        "necesidad_de_apoyo"
+      ]
+    },
+
+    "comunicativo": {
+      "nivel_detalle": "alto",
+      "centrarse_en": [
+        "intencion_comunicativa",
+        "comprension",
+        "expresion",
+        "vocabulario",
+        "morfosintaxis",
+        "fonetica_fonologia",
+        "inteligibilidad",
+        "uso_funcional",
+        "generalizacion"
+      ]
+    },
+
+    "adaptativo": {
+      "centrarse_en": [
+        "autonomia",
+        "alimentacion",
+        "vestido",
+        "higiene",
+        "rutinas",
+        "necesidad_de_supervision"
+      ]
+    }
+  },
+
+  "objetivos": {
+    "estilo": {
+      "usar_infinitivo": true,
+      "ser_concretos": true,
+      "ser_funcionales": true,
+      "evitar_objetivos_demasiado_genericos": true,
+      "evitar_repetir_la_misma_idea": true
+    },
+
+    "verbos_preferidos": [
+      "favorecer",
+      "potenciar",
+      "mejorar",
+      "aumentar",
+      "estimular",
+      "consolidar",
+      "generalizar",
+      "desarrollar",
+      "reforzar",
+      "promover"
+    ]
+  },
+
+  "coherencia": {
+    "cada_objetivo_debe_derivar_de_una_necesidad_detectada": true,
+    "las_dificultades_descritas_deben_aparecer_en_objetivos_si_son_relevantes": true,
+    "las_mejorias_no_deben_contradecir_los_resultados": true,
+    "la_interpretacion_no_debe_repetir_literalmente_la_tabla": true
+  }
+}
