@@ -9,40 +9,78 @@
 
 <body>
 
-<header>
-  <h1>PIAT Assistant</h1>
-  <p>Asistente para generación automática de informes clínicos.</p>
-</header>
+  <header class="app-header">
+    <div>
+      <h1>PIAT Assistant</h1>
+      <p>Generación asistida de PIAT iniciales y de revisión</p>
+    </div>
+  </header>
 
-<main>
+  <main class="app-main">
 
-<section class="card">
+    <section class="card">
+      <h2>Nuevo PIAT</h2>
 
-<h2>Biblioteca de ejemplos</h2>
+      <div class="form-group">
+        <label for="piatType">Tipo de informe</label>
+        <select id="piatType">
+          <option value="">Selecciona un tipo</option>
+          <option value="inicial">PIAT inicial</option>
+          <option value="revision">PIAT de revisión</option>
+        </select>
+      </div>
 
-<p>Aquí cargaremos los PIAT anonimizados.</p>
+      <div class="form-group">
+        <label for="patientName">Nombre del paciente</label>
+        <input
+          type="text"
+          id="patientName"
+          placeholder="Ej. Alejandro Tercero González"
+        >
+      </div>
 
-<button id="loadExamples">
-Cargar ejemplos
-</button>
+      <div class="form-group">
+        <label for="birthDate">Fecha de nacimiento</label>
+        <input
+          type="date"
+          id="birthDate"
+        >
+      </div>
 
-</section>
+      <div class="form-group">
+        <label for="previousPiat">PIAT anterior</label>
+        <input
+          type="file"
+          id="previousPiat"
+          accept=".pdf,.doc,.docx"
+        >
+        <small>
+          Se utilizará principalmente en los PIAT de revisión.
+        </small>
+      </div>
 
-<section class="card">
+      <div class="form-group">
+        <label for="currentAssessment">Evaluación o resultados actuales</label>
+        <input
+          type="file"
+          id="currentAssessment"
+          accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
+        >
+      </div>
 
-<h2>Estado</h2>
+      <button id="continueButton" type="button">
+        Continuar
+      </button>
+    </section>
 
-<div id="status">
+    <section class="card">
+      <h2>Estado</h2>
+      <p id="status">Esperando datos del paciente.</p>
+    </section>
 
-Esperando...
+  </main>
 
-</div>
-
-</section>
-
-</main>
-
-<script src="script.js"></script>
+  <script src="script.js"></script>
 
 </body>
 </html>
