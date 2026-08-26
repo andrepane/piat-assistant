@@ -8,7 +8,10 @@ import {
   getFirestore,
   collection,
   addDoc,
-  serverTimestamp
+  serverTimestamp,
+  query,
+  where,
+  getDocs
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -79,11 +82,70 @@ const patientName = document.getElementById("patientName");
 const patientNH = document.getElementById("patientNH");
 const patientDocuments = document.getElementById("patientDocuments");
 const selectedDocuments = document.getElementById("selectedDocuments");
+const patientsEmpty = document.getElementById("patientsEmpty");
+const patientsList = document.getElementById("patientsList");
+
+async function loadPatients() {
+  const user = auth.currentUser;
+
+  if (!user) {
+    patientsList.innerHTML = "";
+    patientsEmpty.hidden = false;
+    return;
+  }
+
+  try {
+    const patientsQuery = query(
+      collection(db, "patients"),
+      where("userId", "==", user.uid)
+    );
+
+    const snapshot = await getDocs(patientsQuery);
+
+    patientsList.innerHTML = "";
+
+    if (snapshot.empty) {
+      patientsEmpty.hidden = false;
+      return;
+    }
+
+    patientsEmpty.hidden = true;
+
+    snapshot.forEach((doc) => {
+      const patient = doc.data();
+
+      const card = document.createElement("article");
+      card.className = "patient-card";
+
+      const name = document.createElement("h3");
+      name.textContent = patient.nombre || "Paciente sin nombre";
+
+      const nh = document.createElement("p");
+      nh.textContent = patient.nh
+        ? `NH: ${patient.nh}`
+        : "NH no indicado";
+
+      const status = document.createElement("p");
+      status.textContent = `Estado: ${patient.estado || "sin estado"}`;
+
+      card.appendChild(name);
+      card.appendChild(nh);
+      card.appendChild(status);
+
+      patientsList.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error("Error cargando pacientes:", error);
+  }
+}
 
 function showPatientsView() {
   patientsView.hidden = false;
   newPatientView.hidden = true;
   reviewPatientView.hidden = true;
+
+  loadPatients();
 }
 
 function showNewPatientView() {
