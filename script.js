@@ -1,3 +1,20 @@
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {
+  getAuth
+} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
+  authDomain: "piat-assistant.firebaseapp.com",
+  projectId: "piat-assistant",
+  storageBucket: "piat-assistant.firebasestorage.app",
+  messagingSenderId: "584338030607",
+  appId: "1:584338030607:web:5696ad7e815d65335b637a"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
 const patientsView = document.getElementById("patientsView");
 const newPatientView = document.getElementById("newPatientView");
 
