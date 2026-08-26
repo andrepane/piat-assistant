@@ -65,6 +65,11 @@ onAuthStateChanged(auth, (user) => {
 
 const patientsView = document.getElementById("patientsView");
 const newPatientView = document.getElementById("newPatientView");
+const reviewPatientView = document.getElementById("reviewPatientView");
+
+const reviewFields = document.getElementById("reviewFields");
+const backToNewPatientButton = document.getElementById("backToNewPatientButton");
+const saveReviewedPatientButton = document.getElementById("saveReviewedPatientButton");
 
 const newPatientButton = document.getElementById("newPatientButton");
 const cancelPatientButton = document.getElementById("cancelPatientButton");
@@ -76,13 +81,21 @@ const patientDocuments = document.getElementById("patientDocuments");
 const selectedDocuments = document.getElementById("selectedDocuments");
 
 function showPatientsView() {
-  newPatientView.hidden = true;
   patientsView.hidden = false;
+  newPatientView.hidden = true;
+  reviewPatientView.hidden = true;
 }
 
 function showNewPatientView() {
   patientsView.hidden = true;
   newPatientView.hidden = false;
+  reviewPatientView.hidden = true;
+}
+
+function showReviewPatientView() {
+  patientsView.hidden = true;
+  newPatientView.hidden = true;
+  reviewPatientView.hidden = false;
 }
 
 function resetPatientForm() {
