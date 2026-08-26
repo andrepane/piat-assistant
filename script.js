@@ -141,7 +141,6 @@ patientDocuments.addEventListener("change", () => {
 
 analyzePatientButton.addEventListener("click", async () => {
   const name = patientName.value.trim();
-  const nh = patientNH.value.trim();
   const files = Array.from(patientDocuments.files);
 
   if (!name) {
@@ -154,47 +153,122 @@ analyzePatientButton.addEventListener("click", async () => {
     return;
   }
 
-  const user = auth.currentUser;
-
-  if (!user) {
-    alert("Debes iniciar sesión.");
-    return;
-  }
+  const file = files[0];
 
   try {
     analyzePatientButton.disabled = true;
-    analyzePatientButton.textContent = "Guardando...";
+    analyzePatientButton.textContent = "Analizando...";
 
-    const patientData = {
-      userId: user.uid,
-      nombre: name,
-      nh: nh || null,
-      documentos: files.map((file) => ({
-        nombre: file.name,
-        tipo: file.type || null,
-        tamano: file.size
-      })),
-      estado: "pendiente_analisis",
-      fechaCreacion: serverTimestamp(),
-      ultimaActualizacion: serverTimestamp()
+    const reader = new FileReader();
+
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result.split(",")[1];
+
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            fileBase64: base64,
+            mimeType: file.type
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          console.error(result);
+          alert(result.error || "No se ha podido analizar el documento.");
+          return;
+        }
+
+        window.currentPatientExtraction = result;
+
+        reviewFields.innerHTML = "";
+
+        const sections = [
+          ["Identificación", result.identificacion],
+          ["Diagnóstico", result.diagnostico],
+          ["Salud", result.salud],
+          ["Escolarización", result.escolarizacion],
+          ["Desarrollo y contexto", result.desarrollo_y_contexto],
+          ["Familia", result.familia],
+          ["Apoyo profesional", result.apoyo_profesional]
+        ];
+
+        sections.forEach(([title, data]) => {
+          if (!data) return;
+
+          const section = document.createElement("section");
+          section.className = "review-section";
+
+          const heading = document.createElement("h3");
+          heading.textContent = title;
+          section.appendChild(heading);
+
+          Object.entries(data).forEach(([key, field]) => {
+            if (
+              field &&
+              typeof field === "object" &&
+              !Array.isArray(field) &&
+              "valor" in field
+            ) {
+              const wrapper = document.createElement("div");
+              wrapper.className = "review-field";
+
+              const label = document.createElement("label");
+              label.textContent = key.replaceAll("_", " ");
+
+              const input = document.createElement("textarea");
+              input.value = field.valor ?? "";
+              input.dataset.section = title;
+              input.dataset.key = key;
+
+              const meta = document.createElement("small");
+
+              const confianza = field.confianza || "desconocida";
+
+              meta.textContent =
+                `Confianza: ${confianza}` +
+                (field.evidencia
+                  ? ` · Evidencia: "${field.evidencia}"`
+                  : "");
+
+              if (confianza === "baja") {
+                wrapper.classList.add("low-confidence");
+              }
+
+              wrapper.appendChild(label);
+              wrapper.appendChild(input);
+              wrapper.appendChild(meta);
+
+              section.appendChild(wrapper);
+            }
+          });
+
+          reviewFields.appendChild(section);
+        });
+
+        showReviewPatientView();
+
+      } catch (error) {
+        console.error(error);
+        alert("Ha ocurrido un error durante el análisis.");
+      } finally {
+        analyzePatientButton.disabled = false;
+        analyzePatientButton.textContent = "Analizar documentación";
+      }
     };
 
-    const docRef = await addDoc(
-      collection(db, "patients"),
-      patientData
-    );
-
-    alert(`Paciente creado correctamente. ID: ${docRef.id}`);
-
-    resetPatientForm();
-    showPatientsView();
+    reader.readAsDataURL(file);
 
   } catch (error) {
     console.error(error);
-    alert("No se ha podido crear el paciente.");
-  } finally {
     analyzePatientButton.disabled = false;
     analyzePatientButton.textContent = "Analizar documentación";
+    alert("No se ha podido leer el archivo.");
   }
 });
 
