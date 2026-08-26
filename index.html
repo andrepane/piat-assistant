@@ -48,6 +48,36 @@
     </div>
   </header>
 
+  <section id="reviewPatientView" hidden>
+
+  <div class="page-heading">
+    <div>
+      <h2>Revisar ficha del paciente</h2>
+      <p>
+        Revisa la información extraída antes de guardarla.
+        Los datos dudosos requieren comprobación manual.
+      </p>
+    </div>
+  </div>
+
+  <section class="card">
+    <div id="reviewFields"></div>
+  </section>
+
+  <section class="card">
+    <div class="actions">
+      <button id="backToNewPatientButton" type="button" class="secondary-button">
+        Volver
+      </button>
+
+      <button id="saveReviewedPatientButton" type="button">
+        Guardar paciente
+      </button>
+    </div>
+  </section>
+
+</section>
+
 <main id="appMain" class="app-main" hidden>
     <!-- PANTALLA PRINCIPAL -->
     <section id="patientsView">
