@@ -140,3 +140,32 @@ button:hover {
 #reviewFields {
   display: block;
 }
+
+.review-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+}
+
+.review-field small strong {
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.review-field .evidence {
+  display: block;
+  margin-top: 4px;
+  color: #6b7280;
+  font-weight: 400;
+}
+
+.review-field.low-confidence {
+  border: 2px solid #d1a000;
+  background: #fffdf5;
+}
+
+.review-field.low-confidence small strong {
+  color: #8a6d00;
+}
