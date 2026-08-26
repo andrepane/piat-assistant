@@ -221,20 +221,55 @@ analyzePatientButton.addEventListener("click", async () => {
               const label = document.createElement("label");
               label.textContent = key.replaceAll("_", " ");
 
-              const input = document.createElement("textarea");
-              input.value = field.valor ?? "";
-              input.dataset.section = title;
-              input.dataset.key = key;
+             const longFields = [
+  "informacion_medica",
+  "antecedentes_personales",
+  "antecedentes_familiares",
+  "otros_datos_salud",
+  "estado_fisico_general",
+  "aspectos_emocionales_menor",
+  "aspectos_emocionales_cuidadores",
+  "entorno_familiar",
+  "conducta",
+  "sociabilidad",
+  "preocupaciones_actuales",
+  "prioridades"
+];
+
+const input = document.createElement(
+  longFields.includes(key) ? "textarea" : "input"
+);
+
+input.value = field.valor ?? "";
+input.dataset.section = title;
+input.dataset.key = key;
+
+if (input.tagName === "INPUT") {
+  input.type = "text";
+}
 
               const meta = document.createElement("small");
 
               const confianza = field.confianza || "desconocida";
 
-              meta.textContent =
-                `Confianza: ${confianza}` +
-                (field.evidencia
-                  ? ` · Evidencia: "${field.evidencia}"`
-                  : "");
+              let confidenceLabel = "Dato encontrado";
+
+if (confianza === "media") {
+  confidenceLabel = "Revisar dato";
+}
+
+if (confianza === "baja") {
+  confidenceLabel = "Dato dudoso";
+}
+
+meta.innerHTML = `
+  <strong>${confidenceLabel}</strong>
+  ${
+    field.evidencia
+      ? `<span class="evidence">Evidencia: "${field.evidencia}"</span>`
+      : ""
+  }
+`;
 
               if (confianza === "baja") {
                 wrapper.classList.add("low-confidence");
