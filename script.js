@@ -308,3 +308,85 @@ meta.innerHTML = `
 });
 
 showPatientsView();
+
+saveReviewedPatientButton.addEventListener("click", async () => {
+  const user = auth.currentUser;
+
+  if (!user) {
+    alert("Debes iniciar sesión.");
+    return;
+  }
+
+  const extraction = window.currentPatientExtraction;
+
+  if (!extraction) {
+    alert("No hay datos analizados para guardar.");
+    return;
+  }
+
+  try {
+    saveReviewedPatientButton.disabled = true;
+    saveReviewedPatientButton.textContent = "Guardando...";
+
+    const reviewedData = structuredClone(extraction);
+
+    const inputs = reviewFields.querySelectorAll("input, textarea");
+
+    inputs.forEach((input) => {
+      const sectionTitle = input.dataset.section;
+      const key = input.dataset.key;
+
+      const sectionMap = {
+        "Identificación": "identificacion",
+        "Diagnóstico": "diagnostico",
+        "Salud": "salud",
+        "Escolarización": "escolarizacion",
+        "Desarrollo y contexto": "desarrollo_y_contexto",
+        "Familia": "familia",
+        "Apoyo profesional": "apoyo_profesional"
+      };
+
+      const sectionKey = sectionMap[sectionTitle];
+
+      if (
+        sectionKey &&
+        reviewedData[sectionKey] &&
+        reviewedData[sectionKey][key] &&
+        typeof reviewedData[sectionKey][key] === "object" &&
+        "valor" in reviewedData[sectionKey][key]
+      ) {
+        reviewedData[sectionKey][key].valor =
+          input.value.trim() || null;
+      }
+    });
+
+    const patientData = {
+      userId: user.uid,
+      nombre: patientName.value.trim(),
+      nh: patientNH.value.trim() || null,
+      ficha: reviewedData,
+      estado: "activo",
+      fechaCreacion: serverTimestamp(),
+      ultimaActualizacion: serverTimestamp()
+    };
+
+    const docRef = await addDoc(
+      collection(db, "patients"),
+      patientData
+    );
+
+    alert(`Paciente guardado correctamente. ID: ${docRef.id}`);
+
+    window.currentPatientExtraction = null;
+
+    resetPatientForm();
+    showPatientsView();
+
+  } catch (error) {
+    console.error(error);
+    alert("No se ha podido guardar el paciente.");
+  } finally {
+    saveReviewedPatientButton.disabled = false;
+    saveReviewedPatientButton.textContent = "Guardar paciente";
+  }
+});
