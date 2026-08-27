@@ -49,7 +49,6 @@
   },
   "document": {
     "path": "patients/{patientId}/documents/{documentId}",
-    "storagePath": "users/{userId}/patients/{patientId}/documents/{documentId}/original.pdf",
     "userId": "firebase-uid",
     "patientId": "string",
     "tipo": "piat_inicial|piat_revision|evaluacion|informe_clinico|informe_escolar|otro",
@@ -57,7 +56,9 @@
     "mimeType": "application/pdf",
     "tamano": "number",
     "fechaDocumento": "YYYY-MM-DD|null",
-    "estado": "subiendo|subido|analizado|error|archivado",
+    "sha256": "string",
+    "archivoConservado": false,
+    "estado": "procesando|analizado|error|archivado",
     "fechaCreacion": "timestamp",
     "ultimaActualizacion": "timestamp"
   },
@@ -73,7 +74,7 @@
   "states": {
     "patient": ["activo", "alta", "archivado"],
     "analysis": ["pendiente", "procesando", "revisado", "error"],
-    "document": ["subiendo", "subido", "procesando", "analizado", "error", "archivado"]
+    "document": ["procesando", "analizado", "error", "archivado"]
   },
   "compatibility": {
     "legacyPatientStatusField": "estado",

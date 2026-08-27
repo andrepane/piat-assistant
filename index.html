@@ -115,9 +115,9 @@
           <div class="section-heading">
             <div>
               <h3>Documentación</h3>
-              <p>PDF originales almacenados de forma privada para este paciente.</p>
+              <p>Documentos analizados. Los PDF originales no se conservan en PIAT Assistant.</p>
             </div>
-            <button id="showDocumentUploadButton" type="button">+ Añadir documento</button>
+            <button id="showDocumentUploadButton" type="button">+ Analizar documento</button>
           </div>
 
           <form id="patientDocumentUploadForm" class="document-upload-form" hidden>
@@ -141,11 +141,11 @@
             <div class="form-group">
               <label for="existingPatientDocument">Archivo PDF</label>
               <input id="existingPatientDocument" type="file" accept="application/pdf,.pdf" required>
-              <small>Máximo 8 MB. El archivo no tendrá un enlace público.</small>
+              <small>Máximo 8 MB. El PDF se descartará después del análisis.</small>
             </div>
             <div class="actions">
               <button id="cancelDocumentUploadButton" type="button" class="secondary-button">Cancelar</button>
-              <button id="uploadPatientDocumentButton" type="submit">Guardar documento</button>
+              <button id="uploadPatientDocumentButton" type="submit">Analizar documento</button>
             </div>
             <p id="patientDocumentUploadStatus" role="status"></p>
           </form>
@@ -252,9 +252,9 @@
     <section id="reviewPatientView" hidden>
       <div class="page-heading">
         <div>
-          <h2>Revisar ficha del paciente</h2>
+          <h2>Revisar información extraída</h2>
           <p>
-            Revisa la información extraída antes de guardarla.
+            Revisa la información del documento antes de guardarla.
             Los datos dudosos requieren comprobación manual.
           </p>
         </div>

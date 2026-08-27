@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import {
   applyClinicalRecordEdits,
   CLINICAL_SECTION_ORDER,
-  createDocumentStoragePath,
   createPatientDocumentId,
   getPatientClinicalRecord,
   getPatientName,
@@ -16,13 +15,6 @@ import {
   sortByNewest,
   valuesAreEqual
 } from "../src/patient-model.js";
-
-test("genera una ruta privada y predecible para cada documento", () => {
-  assert.equal(
-    createDocumentStoragePath("usuario-1", "paciente-1", "documento-1"),
-    "users/usuario-1/patients/paciente-1/documents/documento-1/original.pdf"
-  );
-});
 
 test("comprueba la firma real de un PDF", () => {
   assert.equal(hasPdfSignature(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])), true);

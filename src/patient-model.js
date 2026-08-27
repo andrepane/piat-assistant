@@ -11,8 +11,7 @@ export const ANALYSIS_STATUS = Object.freeze({
 });
 
 export const DOCUMENT_STATUS = Object.freeze({
-  UPLOADING: "subiendo",
-  UPLOADED: "subido",
+  PROCESSING: "procesando",
   ANALYZED: "analizado",
   ERROR: "error",
   ARCHIVED: "archivado"
@@ -78,10 +77,6 @@ export async function createPatientDocumentId(userId, normalizedNH) {
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
-}
-
-export function createDocumentStoragePath(userId, patientId, documentId) {
-  return `users/${userId}/patients/${patientId}/documents/${documentId}/original.pdf`;
 }
 
 export function hasPdfSignature(bytes) {
