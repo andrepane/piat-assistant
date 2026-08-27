@@ -9,8 +9,28 @@ import {
   getPatientStatus,
   normalizeMedicalRecordNumber,
   normalizeText,
-  sortByNewest
+  sortByNewest,
+  valuesAreEqual
 } from "../src/patient-model.js";
+
+test("considera iguales mapas de Firestore aunque cambie el orden de sus claves", () => {
+  const loadedRecord = {
+    identificacion: {
+      edad: { valor: "32 meses", confianza: "alta", evidencia: "Edad: 32 meses" },
+      sexo: { valor: "Varón", confianza: "alta" }
+    }
+  };
+  const transactionRecord = {
+    identificacion: {
+      sexo: { confianza: "alta", valor: "Varón" },
+      edad: { evidencia: "Edad: 32 meses", confianza: "alta", valor: "32 meses" }
+    }
+  };
+
+  assert.equal(valuesAreEqual(loadedRecord, transactionRecord), true);
+  transactionRecord.identificacion.edad.valor = "33 meses";
+  assert.equal(valuesAreEqual(loadedRecord, transactionRecord), false);
+});
 
 test("aplica solo cambios reales y conserva la trazabilidad del campo", () => {
   const original = {
