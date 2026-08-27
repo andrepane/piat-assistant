@@ -48,36 +48,6 @@
     </div>
   </header>
 
-  <section id="reviewPatientView" hidden>
-
-  <div class="page-heading">
-    <div>
-      <h2>Revisar ficha del paciente</h2>
-      <p>
-        Revisa la información extraída antes de guardarla.
-        Los datos dudosos requieren comprobación manual.
-      </p>
-    </div>
-  </div>
-
-  <section class="card">
-    <div id="reviewFields"></div>
-  </section>
-
-  <section class="card">
-    <div class="actions">
-      <button id="backToNewPatientButton" type="button" class="secondary-button">
-        Volver
-      </button>
-
-      <button id="saveReviewedPatientButton" type="button">
-        Guardar paciente
-      </button>
-    </div>
-  </section>
-
-</section>
-
 <main id="appMain" class="app-main" hidden>
     <!-- PANTALLA PRINCIPAL -->
     <section id="patientsView">
@@ -146,13 +116,12 @@
           <input
             type="file"
             id="patientDocuments"
-            accept=".pdf,.doc,.docx,.xlsx,.xls,.csv"
-            multiple
+            accept="application/pdf,.pdf"
           >
 
           <small>
-            Puedes seleccionar varios documentos: PIAT anteriores,
-            evaluaciones, informes clínicos, escolares u otros documentos relevantes.
+            En esta fase puedes seleccionar un PDF. La gestión de varios documentos
+            se incorporará dentro de la ficha del paciente.
           </small>
         </div>
 
@@ -173,16 +142,44 @@
       <section class="card">
         <h2>¿Qué ocurrirá después?</h2>
         <p>
-          La aplicación analizará los documentos e intentará construir automáticamente
+          La aplicación analizará el documento e intentará construir automáticamente
           la ficha del paciente.
         </p>
         <p>
           Antes de guardar nada podrás revisar la información encontrada,
-          completar datos manualmente, subir documentación adicional o dejar
-          campos sin rellenar.
+          completar datos manualmente o dejar campos sin rellenar.
         </p>
       </section>
 
+    </section>
+
+    <!-- REVISIÓN DE LA EXTRACCIÓN -->
+    <section id="reviewPatientView" hidden>
+      <div class="page-heading">
+        <div>
+          <h2>Revisar ficha del paciente</h2>
+          <p>
+            Revisa la información extraída antes de guardarla.
+            Los datos dudosos requieren comprobación manual.
+          </p>
+        </div>
+      </div>
+
+      <section class="card">
+        <div id="reviewFields"></div>
+      </section>
+
+      <section class="card">
+        <div class="actions">
+          <button id="backToNewPatientButton" type="button" class="secondary-button">
+            Volver
+          </button>
+
+          <button id="saveReviewedPatientButton" type="button">
+            Guardar paciente
+          </button>
+        </div>
+      </section>
     </section>
 
   </main>

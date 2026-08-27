@@ -1,74 +1,60 @@
 {
-  "version": 1,
-
-  "identificacion": {
-    "nh": null,
-    "nombre": null,
-    "apellidos": null,
-    "fecha_nacimiento": null,
-    "sexo": null
+  "version": 2,
+  "patient": {
+    "schemaVersion": 2,
+    "userId": "firebase-uid",
+    "nombre": "string",
+    "nombreNormalizado": "string",
+    "nh": "string|null",
+    "nhNormalizado": "string|null",
+    "estadoClinico": "activo|alta|archivado",
+    "ficha": "clinicalRecord",
+    "ultimoAnalisisId": "string",
+    "fechaCreacion": "timestamp",
+    "ultimaActualizacion": "timestamp"
   },
-
-  "diagnostico": {
-    "diagnostico_funcional_odat": [],
-    "diagnostico_principal_cait": null,
-    "otros_diagnosticos": []
+  "extractedField": {
+    "valor": "unknown|null",
+    "valorExtraido": "unknown|null",
+    "confianza": "alta|media|baja",
+    "confianzaExtraccion": "alta|media|baja|null",
+    "evidencia": "string|null",
+    "procedenciaValor": "gemini|manual|no_encontrado",
+    "revisadoManualmente": "boolean"
   },
-
-  "salud": {
-    "informacion_medica": null,
-    "antecedentes_personales": null,
-    "antecedentes_familiares": null,
-    "otros_datos_salud": null,
-    "centro_salud": null,
-    "seguimientos_especialistas": [],
-    "medicacion": [],
-    "alergias": []
+  "clinicalRecord": {
+    "identificacion": "object",
+    "diagnostico": "object",
+    "salud": "object",
+    "escolarizacion": "object",
+    "desarrollo_y_contexto": "object",
+    "familia": "object",
+    "apoyo_profesional": "object",
+    "evaluaciones": "array",
+    "objetivos": "object",
+    "informacion_adicional": "array"
   },
-
-  "escolarizacion": {
-    "centro": null,
-    "curso": null,
-    "modalidad": null,
-    "apoyos": []
+  "analysis": {
+    "path": "patients/{patientId}/analyses/{analysisId}",
+    "schemaVersion": 2,
+    "userId": "firebase-uid",
+    "patientId": "string",
+    "estado": "revisado|error",
+    "documentoFuente": "fileMetadata",
+    "extraccionOriginal": "clinicalRecord",
+    "extraccionRevisada": "clinicalRecord",
+    "revisionHumana": "reviewMetadata",
+    "camposModificados": "string[]",
+    "fechaCreacion": "timestamp"
   },
-
-  "desarrollo_y_contexto": {
-    "estado_fisico_general": null,
-    "aspectos_emocionales_menor": null,
-    "aspectos_emocionales_cuidadores": null,
-    "entorno_familiar": null,
-    "conducta": null,
-    "sociabilidad": null
+  "states": {
+    "patient": ["activo", "alta", "archivado"],
+    "analysis": ["pendiente", "procesando", "revisado", "error"],
+    "document": ["subido", "procesando", "analizado", "error", "archivado"]
   },
-
-  "familia": {
-    "composicion_familiar": null,
-    "preocupaciones_actuales": null,
-    "prioridades": null
-  },
-
-  "apoyo_profesional": {
-    "profesional_referencia": null,
-    "profesionales": [],
-    "intervenciones_externas": []
-  },
-
-  "evaluaciones": [],
-
-  "objetivos": {
-    "actuales": [],
-    "conseguidos": [],
-    "en_proceso": [],
-    "historico": []
-  },
-
-  "documentos": [],
-
-  "informacion_adicional": [],
-
-  "metadatos": {
-    "fecha_creacion": null,
-    "ultima_actualizacion": null
+  "compatibility": {
+    "legacyPatientStatusField": "estado",
+    "legacyActiveValue": "activo",
+    "legacyPendingAnalysisValue": "pendiente_analisis"
   }
 }
