@@ -96,6 +96,24 @@ button:hover {
   font-size: 20px;
 }
 
+.review-group {
+  margin: 16px 0;
+  padding: 16px;
+  border-left: 3px solid #dbe5ee;
+  background: #f8fafc;
+}
+
+.review-group h4 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+.review-empty {
+  margin: 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
 .review-field {
   display: flex;
   flex-direction: column;
@@ -168,4 +186,41 @@ button:hover {
 
 .review-field.low-confidence small strong {
   color: #8a6d00;
+}
+
+#patientsList {
+  display: grid;
+  gap: 14px;
+}
+
+.patient-card {
+  padding: 18px;
+  border: 1px solid #dbe2e8;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.patient-card h3 {
+  margin: 0 0 12px;
+}
+
+.patient-card-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 8px 18px;
+}
+
+.patient-card-details p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.secondary-button {
+  background: #e5e7eb;
+  color: #1f2937;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }

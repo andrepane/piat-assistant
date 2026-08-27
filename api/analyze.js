@@ -1,3 +1,13 @@
+import { createRemoteJWKSet, jwtVerify } from "jose";
+
+const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const ALLOWED_MIME_TYPES = new Set(["application/pdf"]);
+
+const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
+const FIREBASE_JWKS = createRemoteJWKSet(
+  new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
+);
+
 export const config = {
   api: {
     bodyParser: {
@@ -5,6 +15,43 @@ export const config = {
     }
   }
 };
+
+async function authenticateRequest(req) {
+  const authorization = req.headers.authorization || "";
+  const match = authorization.match(/^Bearer\s+(.+)$/i);
+
+  if (!match) return null;
+
+  try {
+    const { payload } = await jwtVerify(match[1], FIREBASE_JWKS, {
+      issuer: `https://securetoken.google.com/${FIREBASE_PROJECT_ID}`,
+      audience: FIREBASE_PROJECT_ID
+    });
+
+    return payload.sub ? payload : null;
+  } catch (error) {
+    console.warn("Firebase token verification failed:", error.message);
+    return null;
+  }
+}
+
+function isValidBase64(value) {
+  return typeof value === "string" &&
+    value.length > 0 &&
+    value.length % 4 === 0 &&
+    /^[A-Za-z0-9+/]+={0,2}$/.test(value);
+}
+
+function hasExpectedExtractionShape(value) {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    value.identificacion &&
+    value.diagnostico &&
+    value.salud
+  );
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -14,11 +61,44 @@ export default async function handler(req, res) {
   }
 
   try {
+    const authenticatedUser = await authenticateRequest(req);
+
+    if (!authenticatedUser) {
+      return res.status(401).json({
+        error: "Sesión no válida o caducada"
+      });
+    }
+
     const { fileBase64, mimeType } = req.body;
 
     if (!fileBase64 || !mimeType) {
       return res.status(400).json({
         error: "Falta el archivo o el tipo MIME"
+      });
+    }
+
+    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+      return res.status(415).json({
+        error: "Tipo de documento no admitido"
+      });
+    }
+
+    if (!isValidBase64(fileBase64)) {
+      return res.status(400).json({
+        error: "El contenido del archivo no es válido"
+      });
+    }
+
+    if (Buffer.byteLength(fileBase64, "base64") > MAX_FILE_SIZE_BYTES) {
+      return res.status(413).json({
+        error: "El documento supera el límite de 8 MB"
+      });
+    }
+
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY is not configured");
+      return res.status(500).json({
+        error: "El servicio de análisis no está configurado"
       });
     }
 
@@ -240,7 +320,25 @@ Usa esta estructura:
       });
     }
 
-    return res.status(200).json(JSON.parse(result));
+    let parsedResult;
+
+    try {
+      parsedResult = JSON.parse(result);
+    } catch (error) {
+      console.error("Gemini returned invalid JSON:", error.message);
+      return res.status(502).json({
+        error: "Gemini devolvió una respuesta no válida"
+      });
+    }
+
+    if (!hasExpectedExtractionShape(parsedResult)) {
+      console.error("Gemini returned an unexpected extraction shape");
+      return res.status(502).json({
+        error: "Gemini devolvió una estructura inesperada"
+      });
+    }
+
+    return res.status(200).json(parsedResult);
 
   } catch (error) {
     console.error(error);
