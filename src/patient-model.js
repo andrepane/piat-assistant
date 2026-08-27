@@ -42,7 +42,21 @@ export function isMissingValue(value) {
 }
 
 export function valuesAreEqual(a, b) {
-  return JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+  return stableSerialize(a) === stableSerialize(b);
+}
+
+function stableSerialize(value) {
+  if (value === null || value === undefined) return "null";
+  if (typeof value?.toMillis === "function") return JSON.stringify(value.toMillis());
+  if (value instanceof Date) return JSON.stringify(value.toISOString());
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(",")}]`;
+  if (typeof value === "object") {
+    return `{${Object.keys(value)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function coerceEditedValue(rawValue, originalValue) {
