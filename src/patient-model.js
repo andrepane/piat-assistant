@@ -88,3 +88,22 @@ export function getPatientNH(patient) {
 export function getPatientAge(patient) {
   return patient.ficha?.identificacion?.edad?.valor ?? null;
 }
+
+export function getPatientClinicalRecord(patient) {
+  return patient.ficha || patient.fichaClinica || null;
+}
+
+export function timestampToMillis(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") return value.toMillis();
+
+  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+export function sortByNewest(items, getTimestamp) {
+  return [...items].sort(
+    (first, second) =>
+      timestampToMillis(getTimestamp(second)) - timestampToMillis(getTimestamp(first))
+  );
+}
