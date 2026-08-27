@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   query,
   where,
+  getDoc,
   getDocs,
   runTransaction
 } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
@@ -29,7 +30,9 @@ import {
   getPatientStatus,
   getPatientName,
   getPatientNH,
-  getPatientAge
+  getPatientAge,
+  getPatientClinicalRecord,
+  sortByNewest
 } from "./src/patient-model.js";
 
 const firebaseConfig = {
@@ -84,6 +87,7 @@ const loginPassword = document.getElementById("loginPassword");
 const loginButton = document.getElementById("loginButton");
 const loginStatus = document.getElementById("loginStatus");
 const patientsView = document.getElementById("patientsView");
+const patientDetailView = document.getElementById("patientDetailView");
 const newPatientView = document.getElementById("newPatientView");
 const reviewPatientView = document.getElementById("reviewPatientView");
 const reviewFields = document.getElementById("reviewFields");
@@ -98,8 +102,16 @@ const patientDocuments = document.getElementById("patientDocuments");
 const selectedDocuments = document.getElementById("selectedDocuments");
 const patientsEmpty = document.getElementById("patientsEmpty");
 const patientsList = document.getElementById("patientsList");
+const backToPatientsButton = document.getElementById("backToPatientsButton");
+const patientDetailTitle = document.getElementById("patientDetailTitle");
+const patientDetailStatus = document.getElementById("patientDetailStatus");
+const patientDetailContent = document.getElementById("patientDetailContent");
+const patientDetailHeader = document.getElementById("patientDetailHeader");
+const patientClinicalRecord = document.getElementById("patientClinicalRecord");
+const patientAnalysisHistory = document.getElementById("patientAnalysisHistory");
 
 let currentAnalysisSession = null;
+let currentPatientId = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -121,6 +133,7 @@ function setAtPath(target, path, value) {
 
 function setVisibleView(view) {
   patientsView.hidden = view !== patientsView;
+  patientDetailView.hidden = view !== patientDetailView;
   newPatientView.hidden = view !== newPatientView;
   reviewPatientView.hidden = view !== reviewPatientView;
 }
@@ -167,9 +180,17 @@ function renderPatientCard(documentSnapshot) {
   updatedAt.textContent = `Actualizado: ${formatTimestamp(
     patient.ultimaActualizacion || patient.metadatos?.ultimaActualizacion
   )}`;
+  const actions = document.createElement("div");
+  actions.className = "patient-card-actions";
+  const openButton = document.createElement("button");
+  openButton.type = "button";
+  openButton.textContent = "Abrir ficha";
+  openButton.setAttribute("aria-label", `Abrir ficha de ${getPatientName(patient)}`);
+  openButton.addEventListener("click", () => openPatientDetail(documentSnapshot.id));
 
   details.append(nh, age, status, updatedAt);
-  card.append(name, details);
+  actions.appendChild(openButton);
+  card.append(name, details, actions);
   return card;
 }
 
@@ -202,6 +223,277 @@ async function loadPatients() {
     patientsEmpty.hidden = false;
     patientsEmpty.querySelector("h3").textContent = "No se han podido cargar los pacientes";
     patientsEmpty.querySelector("p").textContent = "Comprueba la conexión e inténtalo de nuevo.";
+  }
+}
+
+function formatDisplayValue(value) {
+  if (isMissingValue(value)) return "No registrado";
+  if (typeof value === "boolean") return value ? "Sí" : "No";
+  if (Array.isArray(value)) {
+    return value.every((item) => item === null || typeof item !== "object")
+      ? value.join(", ")
+      : JSON.stringify(value);
+  }
+  if (value && typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function formatFileSize(bytes) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "Tamaño no disponible";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function createReadOnlyField(key, field) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "clinical-field";
+  const label = document.createElement("dt");
+  label.textContent = humanizeKey(key);
+  const value = document.createElement("dd");
+  value.textContent = formatDisplayValue(field.valor);
+
+  if (isMissingValue(field.valor)) value.classList.add("clinical-value-empty");
+
+  const meta = document.createElement("small");
+  meta.className = "clinical-field-meta";
+  if (field.revisadoManualmente || field.procedenciaValor === "manual") {
+    meta.textContent = "Valor corregido manualmente";
+  } else if (field.confianzaExtraccion || field.confianza) {
+    meta.textContent = `Extracción Gemini · confianza ${
+      field.confianzaExtraccion || field.confianza
+    }`;
+  } else {
+    meta.textContent = "Origen no registrado";
+  }
+
+  wrapper.append(label, value, meta);
+  return wrapper;
+}
+
+function renderReadOnlyNode(container, key, value) {
+  if (isExtractedField(value)) {
+    container.appendChild(createReadOnlyField(key, value));
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    const group = document.createElement("section");
+    group.className = "clinical-group";
+    const heading = document.createElement("h4");
+    heading.textContent = humanizeKey(key);
+    group.appendChild(heading);
+
+    if (value.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "clinical-value-empty";
+      empty.textContent = "Sin datos registrados";
+      group.appendChild(empty);
+    } else if (value.every((item) => item === null || typeof item !== "object")) {
+      const list = document.createElement("ul");
+      list.className = "clinical-list";
+      value.forEach((item) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = formatDisplayValue(item);
+        list.appendChild(listItem);
+      });
+      group.appendChild(list);
+    } else {
+      value.forEach((item, index) => {
+        renderReadOnlyNode(group, `Elemento ${index + 1}`, item);
+      });
+    }
+
+    container.appendChild(group);
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    const group = document.createElement("section");
+    group.className = "clinical-group";
+    const heading = document.createElement("h4");
+    heading.textContent = humanizeKey(key);
+    group.appendChild(heading);
+    Object.entries(value).forEach(([childKey, childValue]) => {
+      renderReadOnlyNode(group, childKey, childValue);
+    });
+    container.appendChild(group);
+    return;
+  }
+
+  container.appendChild(
+    createReadOnlyField(key, {
+      valor: value,
+      confianza: null,
+      procedenciaValor: null
+    })
+  );
+}
+
+function renderPatientClinicalRecord(patient) {
+  patientClinicalRecord.innerHTML = "";
+  const clinicalRecord = getPatientClinicalRecord(patient);
+
+  if (!clinicalRecord || Object.keys(clinicalRecord).length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent = "Este paciente todavía no tiene una ficha clínica consolidada.";
+    patientClinicalRecord.appendChild(empty);
+    return;
+  }
+
+  Object.entries(clinicalRecord).forEach(([sectionKey, sectionValue]) => {
+    const section = document.createElement("section");
+    section.className = "clinical-section";
+    const heading = document.createElement("h4");
+    heading.textContent = SECTION_LABELS[sectionKey] || humanizeKey(sectionKey);
+    section.appendChild(heading);
+
+    if (sectionValue && typeof sectionValue === "object" && !Array.isArray(sectionValue)) {
+      Object.entries(sectionValue).forEach(([key, value]) => {
+        renderReadOnlyNode(section, key, value);
+      });
+    } else {
+      renderReadOnlyNode(section, sectionKey, sectionValue);
+    }
+    patientClinicalRecord.appendChild(section);
+  });
+}
+
+function createProfileItem(labelText, valueText) {
+  const item = document.createElement("div");
+  const label = document.createElement("dt");
+  const value = document.createElement("dd");
+  label.textContent = labelText;
+  value.textContent = valueText;
+  item.append(label, value);
+  return item;
+}
+
+function renderPatientDetailHeader(patient) {
+  patientDetailHeader.innerHTML = "";
+  patientDetailTitle.textContent = getPatientName(patient);
+
+  const heading = document.createElement("div");
+  heading.className = "patient-profile-title";
+  const name = document.createElement("h3");
+  name.textContent = getPatientName(patient);
+  const status = document.createElement("span");
+  status.className = "status-badge";
+  status.textContent = humanizeKey(getPatientStatus(patient));
+  heading.append(name, status);
+
+  const details = document.createElement("dl");
+  details.className = "patient-profile-details";
+  details.append(
+    createProfileItem("NH", getPatientNH(patient) || "No indicado"),
+    createProfileItem("Edad", getPatientAge(patient) || "No indicada"),
+    createProfileItem(
+      "Última actualización",
+      formatTimestamp(patient.ultimaActualizacion || patient.metadatos?.ultimaActualizacion)
+    ),
+    createProfileItem("Versión de ficha", String(patient.schemaVersion || 1))
+  );
+
+  patientDetailHeader.append(heading, details);
+}
+
+function renderAnalysisHistory(analysisDocuments) {
+  patientAnalysisHistory.innerHTML = "";
+
+  if (analysisDocuments.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent = "No hay análisis guardados para este paciente.";
+    patientAnalysisHistory.appendChild(empty);
+    return;
+  }
+
+  const analyses = sortByNewest(
+    analysisDocuments.map((analysisDocument) => ({
+      id: analysisDocument.id,
+      ...analysisDocument.data()
+    })),
+    (analysis) => analysis.fechaCreacion || analysis.fechaAnalisisCliente
+  );
+
+  analyses.forEach((analysis) => {
+    const card = document.createElement("article");
+    card.className = "analysis-history-card";
+    const heading = document.createElement("div");
+    heading.className = "analysis-history-heading";
+    const title = document.createElement("h4");
+    title.textContent = analysis.documentoFuente?.name || "Documento sin nombre";
+    const status = document.createElement("span");
+    status.className = "status-badge status-badge-secondary";
+    status.textContent = humanizeKey(analysis.estado || "sin estado");
+    heading.append(title, status);
+
+    const details = document.createElement("dl");
+    details.className = "analysis-history-details";
+    details.append(
+      createProfileItem(
+        "Fecha",
+        formatTimestamp(analysis.fechaCreacion || analysis.fechaAnalisisCliente)
+      ),
+      createProfileItem(
+        "Tamaño",
+        formatFileSize(analysis.documentoFuente?.size)
+      ),
+      createProfileItem(
+        "Campos modificados",
+        String(analysis.revisionHumana?.modifiedFieldCount ?? analysis.camposModificados?.length ?? 0)
+      )
+    );
+
+    const storageNotice = document.createElement("p");
+    storageNotice.className = "analysis-storage-notice";
+    storageNotice.textContent =
+      "Se conserva el análisis y la referencia del documento; el PDF original aún no está almacenado.";
+    card.append(heading, details, storageNotice);
+    patientAnalysisHistory.appendChild(card);
+  });
+}
+
+async function openPatientDetail(patientId) {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  currentPatientId = patientId;
+  setVisibleView(patientDetailView);
+  patientDetailTitle.textContent = "Ficha del paciente";
+  patientDetailStatus.hidden = false;
+  patientDetailStatus.textContent = "Cargando ficha...";
+  patientDetailContent.hidden = true;
+
+  try {
+    const patientRef = doc(db, "patients", patientId);
+    const [patientSnapshot, analysesSnapshot] = await Promise.all([
+      getDoc(patientRef),
+      getDocs(collection(patientRef, "analyses"))
+    ]);
+
+    if (currentPatientId !== patientId) return;
+    if (!patientSnapshot.exists()) {
+      throw new Error("El paciente ya no existe o no está disponible.");
+    }
+
+    const patient = patientSnapshot.data();
+    if (patient.userId !== user.uid) {
+      throw new Error("No tienes acceso a este paciente.");
+    }
+
+    renderPatientDetailHeader(patient);
+    renderPatientClinicalRecord(patient);
+    renderAnalysisHistory(analysesSnapshot.docs);
+    patientDetailStatus.hidden = true;
+    patientDetailContent.hidden = false;
+  } catch (error) {
+    console.error("Error cargando la ficha del paciente:", error);
+    if (currentPatientId !== patientId) return;
+    patientDetailStatus.hidden = false;
+    patientDetailStatus.textContent = error.message || "No se ha podido cargar la ficha.";
+    patientDetailContent.hidden = true;
   }
 }
 
@@ -421,8 +713,14 @@ onAuthStateChanged(auth, async (user) => {
   loginView.hidden = false;
   appHeader.hidden = true;
   appMain.hidden = true;
+  currentPatientId = null;
   setVisibleView(patientsView);
   resetPatientForm();
+});
+
+backToPatientsButton.addEventListener("click", async () => {
+  currentPatientId = null;
+  await showPatientsView();
 });
 
 newPatientButton.addEventListener("click", () => {

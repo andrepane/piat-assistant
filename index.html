@@ -77,6 +77,35 @@
 
     </section>
 
+    <!-- FICHA INDIVIDUAL -->
+    <section id="patientDetailView" hidden>
+      <div class="page-heading patient-detail-heading">
+        <div>
+          <button id="backToPatientsButton" type="button" class="text-button">
+            ← Volver a pacientes
+          </button>
+          <h2 id="patientDetailTitle">Ficha del paciente</h2>
+          <p>Información clínica consolidada e historial disponible.</p>
+        </div>
+      </div>
+
+      <div id="patientDetailStatus" class="card" role="status"></div>
+
+      <section id="patientDetailContent" hidden>
+        <section id="patientDetailHeader" class="card patient-profile-header"></section>
+
+        <section class="card">
+          <h3>Ficha clínica</h3>
+          <div id="patientClinicalRecord"></div>
+        </section>
+
+        <section class="card">
+          <h3>Historial de análisis y documentación</h3>
+          <div id="patientAnalysisHistory"></div>
+        </section>
+      </section>
+    </section>
+
 
     <!-- NUEVO PACIENTE -->
     <section id="newPatientView" hidden>
