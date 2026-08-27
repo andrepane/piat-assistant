@@ -112,7 +112,49 @@
         </section>
 
         <section class="card">
-          <h3>Historial de análisis y documentación</h3>
+          <div class="section-heading">
+            <div>
+              <h3>Documentación</h3>
+              <p>PDF originales almacenados de forma privada para este paciente.</p>
+            </div>
+            <button id="showDocumentUploadButton" type="button">+ Añadir documento</button>
+          </div>
+
+          <form id="patientDocumentUploadForm" class="document-upload-form" hidden>
+            <div class="document-form-grid">
+              <div class="form-group">
+                <label for="patientDocumentType">Tipo de documento</label>
+                <select id="patientDocumentType" required>
+                  <option value="piat_inicial">PIAT inicial</option>
+                  <option value="piat_revision">PIAT de revisión</option>
+                  <option value="evaluacion">Evaluación o prueba</option>
+                  <option value="informe_clinico">Informe clínico</option>
+                  <option value="informe_escolar">Informe escolar</option>
+                  <option value="otro">Otro documento</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label for="patientDocumentDate">Fecha del documento (opcional)</label>
+                <input id="patientDocumentDate" type="date">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="existingPatientDocument">Archivo PDF</label>
+              <input id="existingPatientDocument" type="file" accept="application/pdf,.pdf" required>
+              <small>Máximo 8 MB. El archivo no tendrá un enlace público.</small>
+            </div>
+            <div class="actions">
+              <button id="cancelDocumentUploadButton" type="button" class="secondary-button">Cancelar</button>
+              <button id="uploadPatientDocumentButton" type="submit">Guardar documento</button>
+            </div>
+            <p id="patientDocumentUploadStatus" role="status"></p>
+          </form>
+
+          <div id="patientDocumentsList"></div>
+        </section>
+
+        <section class="card">
+          <h3>Historial de actividad</h3>
           <div id="patientAnalysisHistory"></div>
         </section>
       </section>
@@ -149,6 +191,18 @@
             id="patientNH"
             placeholder="Ej. 2353"
           >
+        </div>
+
+        <div class="form-group">
+          <label for="newPatientDocumentType">Tipo de documento</label>
+          <select id="newPatientDocumentType">
+            <option value="piat_inicial">PIAT inicial</option>
+            <option value="piat_revision">PIAT de revisión</option>
+            <option value="evaluacion">Evaluación o prueba</option>
+            <option value="informe_clinico">Informe clínico</option>
+            <option value="informe_escolar">Informe escolar</option>
+            <option value="otro">Otro documento</option>
+          </select>
         </div>
 
         <div class="form-group">

@@ -53,6 +53,35 @@ service cloud.firestore {
         allow delete: if ownsPatient(patientId)
           && resource.data.userId == request.auth.uid;
       }
+
+      match /documents/{documentId} {
+        allow read: if ownsPatient(patientId);
+
+        allow create: if ownsPatientAfterWrite(patientId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.patientId == patientId;
+
+        allow update: if ownsPatient(patientId)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.patientId == patientId;
+
+        allow delete: if ownsPatient(patientId)
+          && resource.data.userId == request.auth.uid;
+      }
+
+      match /revisions/{revisionId} {
+        allow read: if ownsPatient(patientId);
+
+        allow create: if ownsPatientAfterWrite(patientId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.patientId == patientId;
+
+        allow update: if false;
+
+        allow delete: if ownsPatient(patientId)
+          && resource.data.userId == request.auth.uid;
+      }
     }
   }
 }
