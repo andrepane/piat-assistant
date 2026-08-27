@@ -107,3 +107,43 @@ export function sortByNewest(items, getTimestamp) {
       timestampToMillis(getTimestamp(second)) - timestampToMillis(getTimestamp(first))
   );
 }
+
+export function applyClinicalRecordEdits(originalRecord, edits) {
+  const updatedRecord = structuredClone(originalRecord);
+  const changes = [];
+
+  edits.forEach(({ path, rawValue }) => {
+    const originalValue = path.reduce((current, segment) => current?.[segment], originalRecord);
+    const isExtractedField = Boolean(
+      originalValue &&
+      typeof originalValue === "object" &&
+      !Array.isArray(originalValue) &&
+      Object.prototype.hasOwnProperty.call(originalValue, "valor")
+    );
+    const valueBeforeEdit = isExtractedField ? originalValue.valor : originalValue;
+    const updatedValue = coerceEditedValue(rawValue, valueBeforeEdit);
+    if (valuesAreEqual(valueBeforeEdit, updatedValue)) return;
+
+    changes.push({
+      ruta: path.join("."),
+      valorAnterior: valueBeforeEdit ?? null,
+      valorNuevo: updatedValue
+    });
+
+    if (isExtractedField) {
+      const updatedField = path.reduce((current, segment) => current?.[segment], updatedRecord);
+      updatedField.valorAnterior = valueBeforeEdit ?? null;
+      updatedField.valor = updatedValue;
+      updatedField.procedenciaValor = "manual";
+      updatedField.revisadoManualmente = true;
+      return;
+    }
+
+    const parent = path
+      .slice(0, -1)
+      .reduce((current, segment) => current?.[segment], updatedRecord);
+    if (parent !== null && parent !== undefined) parent[path.at(-1)] = updatedValue;
+  });
+
+  return { updatedRecord, changes };
+}
