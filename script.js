@@ -32,7 +32,8 @@ import {
   getPatientNH,
   getPatientAge,
   getPatientClinicalRecord,
-  sortByNewest
+  sortByNewest,
+  applyClinicalRecordEdits
 } from "./src/patient-model.js";
 
 const firebaseConfig = {
@@ -109,9 +110,15 @@ const patientDetailContent = document.getElementById("patientDetailContent");
 const patientDetailHeader = document.getElementById("patientDetailHeader");
 const patientClinicalRecord = document.getElementById("patientClinicalRecord");
 const patientAnalysisHistory = document.getElementById("patientAnalysisHistory");
+const patientClinicalRecordHelp = document.getElementById("patientClinicalRecordHelp");
+const editPatientRecordButton = document.getElementById("editPatientRecordButton");
+const patientRecordEditActions = document.getElementById("patientRecordEditActions");
+const cancelPatientRecordEditButton = document.getElementById("cancelPatientRecordEditButton");
+const savePatientRecordButton = document.getElementById("savePatientRecordButton");
 
 let currentAnalysisSession = null;
 let currentPatientId = null;
+let currentPatientData = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -360,6 +367,92 @@ function renderPatientClinicalRecord(patient) {
   });
 }
 
+function createClinicalEditField(key, value, path, isExtracted = false) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "clinical-edit-field";
+  const label = document.createElement("label");
+  const inputValue = isExtracted ? value.valor : value;
+  const input = document.createElement(
+    LONG_FIELDS.has(String(key)) || String(inputValue ?? "").length > 100 ? "textarea" : "input"
+  );
+  const inputId = `clinical-edit-${path.join("-")}`;
+  label.textContent = humanizeKey(key);
+  label.htmlFor = inputId;
+  input.id = inputId;
+  input.value = isMissingValue(inputValue) ? "" : String(inputValue);
+  input.dataset.editPath = JSON.stringify(path);
+  if (input.tagName === "INPUT") input.type = "text";
+
+  wrapper.append(label, input);
+  if (isExtracted) {
+    const meta = document.createElement("small");
+    meta.textContent = value.evidencia
+      ? `Evidencia original: “${value.evidencia}”`
+      : "Sin evidencia original registrada";
+    wrapper.appendChild(meta);
+  }
+  return wrapper;
+}
+
+function renderClinicalEditNode(container, key, value, path) {
+  if (isExtractedField(value)) {
+    container.appendChild(createClinicalEditField(key, value, path, true));
+    return;
+  }
+
+  if (value && typeof value === "object") {
+    const group = document.createElement("section");
+    group.className = "clinical-group clinical-edit-group";
+    const heading = document.createElement("h4");
+    heading.textContent = humanizeKey(key);
+    group.appendChild(heading);
+    Object.entries(value).forEach(([childKey, childValue]) => {
+      renderClinicalEditNode(group, childKey, childValue, [...path, childKey]);
+    });
+    container.appendChild(group);
+    return;
+  }
+
+  container.appendChild(createClinicalEditField(key, value, path));
+}
+
+function renderPatientClinicalRecordEditor(patient) {
+  patientClinicalRecord.innerHTML = "";
+  const clinicalRecord = getPatientClinicalRecord(patient);
+  if (!clinicalRecord) return;
+
+  Object.entries(clinicalRecord).forEach(([sectionKey, sectionValue]) => {
+    const section = document.createElement("section");
+    section.className = "clinical-section clinical-edit-section";
+    const heading = document.createElement("h4");
+    heading.textContent = SECTION_LABELS[sectionKey] || humanizeKey(sectionKey);
+    section.appendChild(heading);
+
+    if (sectionValue && typeof sectionValue === "object") {
+      Object.entries(sectionValue).forEach(([key, value]) => {
+        renderClinicalEditNode(section, key, value, [sectionKey, key]);
+      });
+    } else {
+      renderClinicalEditNode(section, sectionKey, sectionValue, [sectionKey]);
+    }
+    patientClinicalRecord.appendChild(section);
+  });
+}
+
+function setPatientRecordEditing(editing) {
+  const hasClinicalRecord = Boolean(getPatientClinicalRecord(currentPatientData || {}));
+  editPatientRecordButton.disabled = !hasClinicalRecord;
+  editPatientRecordButton.hidden = editing;
+  patientRecordEditActions.hidden = !editing;
+  patientClinicalRecordHelp.textContent = editing
+    ? "Modifica solo lo necesario. Se guardará un registro de los campos cambiados."
+    : "Consulta los datos consolidados del paciente.";
+
+  if (!currentPatientData) return;
+  if (editing) renderPatientClinicalRecordEditor(currentPatientData);
+  else renderPatientClinicalRecord(currentPatientData);
+}
+
 function createProfileItem(labelText, valueText) {
   const item = document.createElement("div");
   const label = document.createElement("dt");
@@ -423,7 +516,10 @@ function renderAnalysisHistory(analysisDocuments) {
     const heading = document.createElement("div");
     heading.className = "analysis-history-heading";
     const title = document.createElement("h4");
-    title.textContent = analysis.documentoFuente?.name || "Documento sin nombre";
+    const isManualRevision = analysis.tipoEvento === "revision_manual";
+    title.textContent = isManualRevision
+      ? "Edición manual de la ficha"
+      : analysis.documentoFuente?.name || "Documento sin nombre";
     const status = document.createElement("span");
     status.className = "status-badge status-badge-secondary";
     status.textContent = humanizeKey(analysis.estado || "sin estado");
@@ -437,8 +533,8 @@ function renderAnalysisHistory(analysisDocuments) {
         formatTimestamp(analysis.fechaCreacion || analysis.fechaAnalisisCliente)
       ),
       createProfileItem(
-        "Tamaño",
-        formatFileSize(analysis.documentoFuente?.size)
+        isManualRevision ? "Tipo" : "Tamaño",
+        isManualRevision ? "Revisión humana" : formatFileSize(analysis.documentoFuente?.size)
       ),
       createProfileItem(
         "Campos modificados",
@@ -448,8 +544,9 @@ function renderAnalysisHistory(analysisDocuments) {
 
     const storageNotice = document.createElement("p");
     storageNotice.className = "analysis-storage-notice";
-    storageNotice.textContent =
-      "Se conserva el análisis y la referencia del documento; el PDF original aún no está almacenado.";
+    storageNotice.textContent = isManualRevision
+      ? `Cambios: ${analysis.camposModificados?.map(humanizeKey).join(", ") || "sin detalle"}.`
+      : "Se conserva el análisis y la referencia del documento; el PDF original aún no está almacenado.";
     card.append(heading, details, storageNotice);
     patientAnalysisHistory.appendChild(card);
   });
@@ -483,9 +580,11 @@ async function openPatientDetail(patientId) {
       throw new Error("No tienes acceso a este paciente.");
     }
 
+    currentPatientData = patient;
     renderPatientDetailHeader(patient);
     renderPatientClinicalRecord(patient);
     renderAnalysisHistory(analysesSnapshot.docs);
+    setPatientRecordEditing(false);
     patientDetailStatus.hidden = true;
     patientDetailContent.hidden = false;
   } catch (error) {
@@ -714,13 +813,104 @@ onAuthStateChanged(auth, async (user) => {
   appHeader.hidden = true;
   appMain.hidden = true;
   currentPatientId = null;
+  currentPatientData = null;
   setVisibleView(patientsView);
   resetPatientForm();
 });
 
 backToPatientsButton.addEventListener("click", async () => {
   currentPatientId = null;
+  currentPatientData = null;
   await showPatientsView();
+});
+
+editPatientRecordButton.addEventListener("click", () => {
+  if (!getPatientClinicalRecord(currentPatientData || {})) {
+    alert("Este paciente todavía no tiene una ficha clínica que editar.");
+    return;
+  }
+  setPatientRecordEditing(true);
+});
+
+cancelPatientRecordEditButton.addEventListener("click", () => {
+  setPatientRecordEditing(false);
+});
+
+savePatientRecordButton.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  const patientId = currentPatientId;
+  const originalRecord = getPatientClinicalRecord(currentPatientData || {});
+  if (!user || !patientId || !originalRecord) return;
+
+  const edits = [...patientClinicalRecord.querySelectorAll("[data-edit-path]")].map((input) => ({
+    path: JSON.parse(input.dataset.editPath),
+    rawValue: input.value
+  }));
+  const { updatedRecord, changes } = applyClinicalRecordEdits(originalRecord, edits);
+  if (changes.length === 0) {
+    alert("No has modificado ningún dato.");
+    return;
+  }
+
+  try {
+    savePatientRecordButton.disabled = true;
+    savePatientRecordButton.textContent = "Guardando...";
+    const patientRef = doc(db, "patients", patientId);
+    const revisionRef = doc(collection(patientRef, "analyses"));
+    const revisionData = {
+      schemaVersion: SCHEMA_VERSION,
+      userId: user.uid,
+      patientId,
+      tipoEvento: "revision_manual",
+      estado: ANALYSIS_STATUS.REVIEWED,
+      revisionHumana: {
+        reviewedBy: user.uid,
+        reviewedAt: new Date().toISOString(),
+        modifiedFieldCount: changes.length
+      },
+      camposModificados: changes.map((change) => change.ruta),
+      cambios: changes,
+      fechaCreacion: serverTimestamp()
+    };
+
+    await runTransaction(db, async (transaction) => {
+      const latestSnapshot = await transaction.get(patientRef);
+      if (!latestSnapshot.exists() || latestSnapshot.data().userId !== user.uid) {
+        const accessError = new Error("El paciente ya no está disponible.");
+        accessError.code = "patient/not-available";
+        throw accessError;
+      }
+
+      const latestRecord = getPatientClinicalRecord(latestSnapshot.data());
+      if (!valuesAreEqual(latestRecord, originalRecord)) {
+        const conflictError = new Error("La ficha ha cambiado desde que la abriste.");
+        conflictError.code = "patient/edit-conflict";
+        throw conflictError;
+      }
+
+      transaction.update(patientRef, {
+        schemaVersion: SCHEMA_VERSION,
+        ficha: updatedRecord,
+        ultimaRevisionManualId: revisionRef.id,
+        ultimaActualizacion: serverTimestamp()
+      });
+      transaction.set(revisionRef, revisionData);
+    });
+
+    alert(`Ficha actualizada. Se han registrado ${changes.length} campos modificados.`);
+    await openPatientDetail(patientId);
+  } catch (error) {
+    console.error("Error guardando la edición de la ficha:", error);
+    if (error.code === "patient/edit-conflict") {
+      alert("La ficha cambió mientras la editabas. Se recargará para evitar sobrescribir datos.");
+      await openPatientDetail(patientId);
+      return;
+    }
+    alert(error.message || "No se han podido guardar los cambios.");
+  } finally {
+    savePatientRecordButton.disabled = false;
+    savePatientRecordButton.textContent = "Guardar cambios";
+  }
 });
 
 newPatientButton.addEventListener("click", () => {

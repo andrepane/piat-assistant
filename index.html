@@ -95,8 +95,20 @@
         <section id="patientDetailHeader" class="card patient-profile-header"></section>
 
         <section class="card">
-          <h3>Ficha clínica</h3>
+          <div class="section-heading">
+            <div>
+              <h3>Ficha clínica</h3>
+              <p id="patientClinicalRecordHelp">Consulta los datos consolidados del paciente.</p>
+            </div>
+            <button id="editPatientRecordButton" type="button">Editar ficha</button>
+          </div>
           <div id="patientClinicalRecord"></div>
+          <div id="patientRecordEditActions" class="actions" hidden>
+            <button id="cancelPatientRecordEditButton" type="button" class="secondary-button">
+              Cancelar
+            </button>
+            <button id="savePatientRecordButton" type="button">Guardar cambios</button>
+          </div>
         </section>
 
         <section class="card">

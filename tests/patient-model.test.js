@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  applyClinicalRecordEdits,
   createPatientDocumentId,
   getPatientClinicalRecord,
   getPatientName,
@@ -10,6 +11,33 @@ import {
   normalizeText,
   sortByNewest
 } from "../src/patient-model.js";
+
+test("aplica solo cambios reales y conserva la trazabilidad del campo", () => {
+  const original = {
+    identificacion: {
+      edad: { valor: "32 meses", confianza: "alta", evidencia: "Edad: 32 meses" },
+      nombre: { valor: "Paciente" },
+      hermanos: 1
+    }
+  };
+
+  const result = applyClinicalRecordEdits(original, [
+    { path: ["identificacion", "edad"], rawValue: "33 meses" },
+    { path: ["identificacion", "nombre"], rawValue: "Paciente" },
+    { path: ["identificacion", "hermanos"], rawValue: "2" }
+  ]);
+
+  assert.equal(result.updatedRecord.identificacion.edad.valor, "33 meses");
+  assert.equal(result.updatedRecord.identificacion.edad.valorAnterior, "32 meses");
+  assert.equal(result.updatedRecord.identificacion.edad.procedenciaValor, "manual");
+  assert.equal(result.updatedRecord.identificacion.edad.revisadoManualmente, true);
+  assert.equal(result.updatedRecord.identificacion.hermanos, 2);
+  assert.deepEqual(result.changes, [
+    { ruta: "identificacion.edad", valorAnterior: "32 meses", valorNuevo: "33 meses" },
+    { ruta: "identificacion.hermanos", valorAnterior: 1, valorNuevo: 2 }
+  ]);
+  assert.equal(original.identificacion.edad.valor, "32 meses");
+});
 
 test("normaliza nombres para detectar coincidencias", () => {
   assert.equal(normalizeText("  José   Pérez "), "jose perez");
