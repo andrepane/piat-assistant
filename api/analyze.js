@@ -42,6 +42,10 @@ function isValidBase64(value) {
     /^[A-Za-z0-9+/]+={0,2}$/.test(value);
 }
 
+function hasPdfSignature(base64Value) {
+  return Buffer.from(base64Value, "base64").subarray(0, 5).toString("ascii") === "%PDF-";
+}
+
 function hasExpectedExtractionShape(value) {
   return Boolean(
     value &&
@@ -86,6 +90,12 @@ export default async function handler(req, res) {
     if (!isValidBase64(fileBase64)) {
       return res.status(400).json({
         error: "El contenido del archivo no es válido"
+      });
+    }
+
+    if (!hasPdfSignature(fileBase64)) {
+      return res.status(400).json({
+        error: "El archivo no contiene un PDF válido"
       });
     }
 

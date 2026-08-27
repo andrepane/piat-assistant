@@ -4,9 +4,18 @@ Aplicación web para mantener una ficha clínica longitudinal y generar PIAT con
 
 ## Modelo de datos v2
 
-Cada paciente se guarda en `patients/{patientId}`. Los análisis se conservan en la subcolección
-`patients/{patientId}/analyses/{analysisId}` para no mezclar el estado clínico del paciente con el
-estado de procesamiento de la documentación.
+Cada paciente se guarda en `patients/{patientId}` y utiliza subcolecciones con responsabilidades
+separadas:
+
+- `documents/{documentId}`: metadatos y estado del documento analizado;
+- `analyses/{analysisId}`: extracción de Gemini y revisión de esa extracción;
+- `revisions/{revisionId}`: cambios manuales posteriores de la ficha;
+- `reports/{reportId}`: reservado para los futuros informes generados.
+
+Los PDF se envían temporalmente al endpoint de análisis y no se almacenan en Firebase ni en
+Vercel. Se conserva la extracción revisada, los metadatos necesarios y una huella SHA-256 para
+identificar el archivo sin guardar su contenido. Los originales deben permanecer en el sistema
+documental autorizado del centro.
 
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
@@ -27,8 +36,8 @@ usuario.
 
 ## Reglas de Firestore
 
-`firestore.rules` protege cada paciente y sus análisis mediante el `userId` del usuario autenticado.
-Las reglas deben desplegarse en el proyecto Firebase antes de probar el guardado del modelo v2:
+`firestore.rules` protege cada paciente y sus subcolecciones mediante el `userId` autenticado. Las
+reglas deben desplegarse antes de probar la gestión documental:
 
 ```bash
 firebase deploy --only firestore:rules

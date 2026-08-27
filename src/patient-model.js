@@ -10,6 +10,53 @@ export const ANALYSIS_STATUS = Object.freeze({
   REVIEWED: "revisado"
 });
 
+export const DOCUMENT_STATUS = Object.freeze({
+  PROCESSING: "procesando",
+  ANALYZED: "analizado",
+  ERROR: "error",
+  ARCHIVED: "archivado"
+});
+
+export const CLINICAL_SECTION_ORDER = Object.freeze([
+  "identificacion",
+  "diagnostico",
+  "salud",
+  "escolarizacion",
+  "desarrollo_y_contexto",
+  "familia",
+  "apoyo_profesional",
+  "evaluaciones",
+  "objetivos",
+  "informacion_adicional"
+]);
+
+export const CLINICAL_FIELD_ORDER = Object.freeze({
+  identificacion: ["fecha_nacimiento", "sexo", "edad"],
+  diagnostico: ["diagnostico_funcional_odat", "diagnostico_principal_cait", "otros_diagnosticos"],
+  salud: [
+    "informacion_medica",
+    "antecedentes_personales",
+    "antecedentes_familiares",
+    "otros_datos_salud",
+    "centro_salud",
+    "seguimientos_especialistas",
+    "medicacion",
+    "alergias"
+  ],
+  escolarizacion: ["centro", "curso", "modalidad", "apoyos"],
+  desarrollo_y_contexto: [
+    "estado_fisico_general",
+    "aspectos_emocionales_menor",
+    "aspectos_emocionales_cuidadores",
+    "entorno_familiar",
+    "conducta",
+    "sociabilidad"
+  ],
+  familia: ["preocupaciones_actuales", "prioridades"],
+  apoyo_profesional: ["profesional_referencia", "profesionales", "intervenciones_externas"],
+  objetivos: ["actuales", "conseguidos", "en_proceso"]
+});
+
 export function normalizeText(value) {
   return String(value || "")
     .normalize("NFD")
@@ -30,6 +77,15 @@ export async function createPatientDocumentId(userId, normalizedNH) {
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+}
+
+export function hasPdfSignature(bytes) {
+  return bytes?.length >= 5 &&
+    bytes[0] === 0x25 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x44 &&
+    bytes[3] === 0x46 &&
+    bytes[4] === 0x2d;
 }
 
 export function humanizeKey(key) {
@@ -120,6 +176,22 @@ export function sortByNewest(items, getTimestamp) {
     (first, second) =>
       timestampToMillis(getTimestamp(second)) - timestampToMillis(getTimestamp(first))
   );
+}
+
+export function orderedEntries(value, preferredKeys = []) {
+  if (!value || typeof value !== "object") return [];
+  if (Array.isArray(value)) return Object.entries(value);
+  const preferredPositions = new Map(preferredKeys.map((key, index) => [key, index]));
+
+  return Object.entries(value).sort(([firstKey], [secondKey]) => {
+    const firstPosition = preferredPositions.get(firstKey);
+    const secondPosition = preferredPositions.get(secondKey);
+    if (firstPosition !== undefined || secondPosition !== undefined) {
+      return (firstPosition ?? Number.MAX_SAFE_INTEGER) -
+        (secondPosition ?? Number.MAX_SAFE_INTEGER);
+    }
+    return firstKey.localeCompare(secondKey, "es");
+  });
 }
 
 export function applyClinicalRecordEdits(originalRecord, edits) {

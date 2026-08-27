@@ -420,6 +420,35 @@ button:hover {
   border-top: 1px solid #e5e7eb;
 }
 
+.patient-document-card {
+  padding: 18px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.patient-document-card:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.document-upload-form {
+  margin: 4px 0 24px;
+  padding: 18px;
+  border: 1px solid #dbe5ee;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.document-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+#patientDocumentUploadStatus {
+  margin: 14px 0 0;
+  color: #4b5563;
+}
+
 .analysis-history-card:first-child {
   padding-top: 4px;
   border-top: 0;
@@ -442,6 +471,11 @@ button:hover {
 
   .clinical-field {
     grid-template-columns: 1fr;
+  }
+
+  .document-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
   }
 
   .clinical-field-meta {

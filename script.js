@@ -19,9 +19,13 @@ import {
   SCHEMA_VERSION,
   PATIENT_STATUS,
   ANALYSIS_STATUS,
+  DOCUMENT_STATUS,
+  CLINICAL_SECTION_ORDER,
+  CLINICAL_FIELD_ORDER,
   normalizeText,
   normalizeMedicalRecordNumber,
   createPatientDocumentId,
+  hasPdfSignature,
   humanizeKey,
   isMissingValue,
   valuesAreEqual,
@@ -33,14 +37,14 @@ import {
   getPatientAge,
   getPatientClinicalRecord,
   sortByNewest,
-  applyClinicalRecordEdits
+  applyClinicalRecordEdits,
+  orderedEntries
 } from "./src/patient-model.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
   authDomain: "piat-assistant.firebaseapp.com",
   projectId: "piat-assistant",
-  storageBucket: "piat-assistant.firebasestorage.app",
   messagingSenderId: "584338030607",
   appId: "1:584338030607:web:5696ad7e815d65335b637a"
 };
@@ -76,6 +80,15 @@ const LONG_FIELDS = new Set([
   "interpretacion"
 ]);
 
+const DOCUMENT_TYPE_LABELS = {
+  piat_inicial: "PIAT inicial",
+  piat_revision: "PIAT de revisión",
+  evaluacion: "Evaluación o prueba",
+  informe_clinico: "Informe clínico",
+  informe_escolar: "Informe escolar",
+  otro: "Otro documento"
+};
+
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -99,6 +112,7 @@ const cancelPatientButton = document.getElementById("cancelPatientButton");
 const analyzePatientButton = document.getElementById("analyzePatientButton");
 const patientName = document.getElementById("patientName");
 const patientNH = document.getElementById("patientNH");
+const newPatientDocumentType = document.getElementById("newPatientDocumentType");
 const patientDocuments = document.getElementById("patientDocuments");
 const selectedDocuments = document.getElementById("selectedDocuments");
 const patientsEmpty = document.getElementById("patientsEmpty");
@@ -115,6 +129,15 @@ const editPatientRecordButton = document.getElementById("editPatientRecordButton
 const patientRecordEditActions = document.getElementById("patientRecordEditActions");
 const cancelPatientRecordEditButton = document.getElementById("cancelPatientRecordEditButton");
 const savePatientRecordButton = document.getElementById("savePatientRecordButton");
+const showDocumentUploadButton = document.getElementById("showDocumentUploadButton");
+const patientDocumentUploadForm = document.getElementById("patientDocumentUploadForm");
+const patientDocumentType = document.getElementById("patientDocumentType");
+const patientDocumentDate = document.getElementById("patientDocumentDate");
+const existingPatientDocument = document.getElementById("existingPatientDocument");
+const cancelDocumentUploadButton = document.getElementById("cancelDocumentUploadButton");
+const uploadPatientDocumentButton = document.getElementById("uploadPatientDocumentButton");
+const patientDocumentUploadStatus = document.getElementById("patientDocumentUploadStatus");
+const patientDocumentsList = document.getElementById("patientDocumentsList");
 
 let currentAnalysisSession = null;
 let currentPatientId = null;
@@ -162,6 +185,7 @@ function resetPatientForm() {
   patientName.value = "";
   patientNH.value = "";
   patientDocuments.value = "";
+  newPatientDocumentType.value = "piat_inicial";
   selectedDocuments.innerHTML = "";
   reviewFields.innerHTML = "";
   currentAnalysisSession = null;
@@ -321,7 +345,7 @@ function renderReadOnlyNode(container, key, value) {
     const heading = document.createElement("h4");
     heading.textContent = humanizeKey(key);
     group.appendChild(heading);
-    Object.entries(value).forEach(([childKey, childValue]) => {
+    orderedEntries(value).forEach(([childKey, childValue]) => {
       renderReadOnlyNode(group, childKey, childValue);
     });
     container.appendChild(group);
@@ -349,7 +373,7 @@ function renderPatientClinicalRecord(patient) {
     return;
   }
 
-  Object.entries(clinicalRecord).forEach(([sectionKey, sectionValue]) => {
+  orderedEntries(clinicalRecord, CLINICAL_SECTION_ORDER).forEach(([sectionKey, sectionValue]) => {
     const section = document.createElement("section");
     section.className = "clinical-section";
     const heading = document.createElement("h4");
@@ -357,7 +381,7 @@ function renderPatientClinicalRecord(patient) {
     section.appendChild(heading);
 
     if (sectionValue && typeof sectionValue === "object" && !Array.isArray(sectionValue)) {
-      Object.entries(sectionValue).forEach(([key, value]) => {
+      orderedEntries(sectionValue, CLINICAL_FIELD_ORDER[sectionKey] || []).forEach(([key, value]) => {
         renderReadOnlyNode(section, key, value);
       });
     } else {
@@ -406,7 +430,7 @@ function renderClinicalEditNode(container, key, value, path) {
     const heading = document.createElement("h4");
     heading.textContent = humanizeKey(key);
     group.appendChild(heading);
-    Object.entries(value).forEach(([childKey, childValue]) => {
+    orderedEntries(value).forEach(([childKey, childValue]) => {
       renderClinicalEditNode(group, childKey, childValue, [...path, childKey]);
     });
     container.appendChild(group);
@@ -421,7 +445,7 @@ function renderPatientClinicalRecordEditor(patient) {
   const clinicalRecord = getPatientClinicalRecord(patient);
   if (!clinicalRecord) return;
 
-  Object.entries(clinicalRecord).forEach(([sectionKey, sectionValue]) => {
+  orderedEntries(clinicalRecord, CLINICAL_SECTION_ORDER).forEach(([sectionKey, sectionValue]) => {
     const section = document.createElement("section");
     section.className = "clinical-section clinical-edit-section";
     const heading = document.createElement("h4");
@@ -429,7 +453,7 @@ function renderPatientClinicalRecordEditor(patient) {
     section.appendChild(heading);
 
     if (sectionValue && typeof sectionValue === "object") {
-      Object.entries(sectionValue).forEach(([key, value]) => {
+      orderedEntries(sectionValue, CLINICAL_FIELD_ORDER[sectionKey] || []).forEach(([key, value]) => {
         renderClinicalEditNode(section, key, value, [sectionKey, key]);
       });
     } else {
@@ -491,10 +515,72 @@ function renderPatientDetailHeader(patient) {
   patientDetailHeader.append(heading, details);
 }
 
-function renderAnalysisHistory(analysisDocuments) {
+function resetDocumentUploadForm() {
+  patientDocumentUploadForm.reset();
+  patientDocumentUploadForm.hidden = true;
+  showDocumentUploadButton.hidden = false;
+  patientDocumentUploadStatus.textContent = "";
+}
+
+function formatDocumentDate(value) {
+  if (!value) return "Sin fecha indicada";
+  const [year, month, day] = String(value).split("-");
+  return year && month && day ? `${day}/${month}/${year}` : formatTimestamp(value);
+}
+
+function renderPatientDocuments(documentSnapshots) {
+  patientDocumentsList.innerHTML = "";
+  if (documentSnapshots.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent = "Todavía no hay documentos analizados para este paciente.";
+    patientDocumentsList.appendChild(empty);
+    return;
+  }
+
+  const documents = sortByNewest(
+    documentSnapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+    (documentData) => documentData.fechaCreacion
+  );
+
+  documents.forEach((documentData) => {
+    const card = document.createElement("article");
+    card.className = "patient-document-card";
+    const heading = document.createElement("div");
+    heading.className = "analysis-history-heading";
+    const title = document.createElement("h4");
+    title.textContent = documentData.nombreOriginal || "Documento sin nombre";
+    const status = document.createElement("span");
+    status.className = "status-badge status-badge-secondary";
+    status.textContent = humanizeKey(documentData.estado || "sin estado");
+    heading.append(title, status);
+
+    const details = document.createElement("dl");
+    details.className = "analysis-history-details";
+    details.append(
+      createProfileItem(
+        "Tipo",
+        DOCUMENT_TYPE_LABELS[documentData.tipo] ||
+          (documentData.tipo ? humanizeKey(documentData.tipo) : "No indicado")
+      ),
+      createProfileItem("Fecha del documento", formatDocumentDate(documentData.fechaDocumento)),
+      createProfileItem("Tamaño", formatFileSize(documentData.tamano))
+    );
+
+    const note = document.createElement("p");
+    note.className = "analysis-storage-notice";
+    note.textContent = documentData.estado === DOCUMENT_STATUS.ERROR
+      ? "El análisis no se completó."
+      : "Se conserva la información extraída; el PDF original no está almacenado.";
+    card.append(heading, details, note);
+    patientDocumentsList.appendChild(card);
+  });
+}
+
+function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
   patientAnalysisHistory.innerHTML = "";
 
-  if (analysisDocuments.length === 0) {
+  if (analysisDocuments.length === 0 && revisionDocuments.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-detail-message";
     empty.textContent = "No hay análisis guardados para este paciente.";
@@ -503,10 +589,17 @@ function renderAnalysisHistory(analysisDocuments) {
   }
 
   const analyses = sortByNewest(
-    analysisDocuments.map((analysisDocument) => ({
+    [
+      ...analysisDocuments.map((analysisDocument) => ({
       id: analysisDocument.id,
       ...analysisDocument.data()
-    })),
+      })),
+      ...revisionDocuments.map((revisionDocument) => ({
+        id: revisionDocument.id,
+        tipoEvento: "revision_manual",
+        ...revisionDocument.data()
+      }))
+    ],
     (analysis) => analysis.fechaCreacion || analysis.fechaAnalisisCliente
   );
 
@@ -546,7 +639,9 @@ function renderAnalysisHistory(analysisDocuments) {
     storageNotice.className = "analysis-storage-notice";
     storageNotice.textContent = isManualRevision
       ? `Cambios: ${analysis.camposModificados?.map(humanizeKey).join(", ") || "sin detalle"}.`
-      : "Se conserva el análisis y la referencia del documento; el PDF original aún no está almacenado.";
+      : analysis.documentId
+        ? "Análisis vinculado al registro documental; el PDF original no se conserva."
+        : "Análisis antiguo sin registro documental asociado.";
     card.append(heading, details, storageNotice);
     patientAnalysisHistory.appendChild(card);
   });
@@ -565,9 +660,11 @@ async function openPatientDetail(patientId) {
 
   try {
     const patientRef = doc(db, "patients", patientId);
-    const [patientSnapshot, analysesSnapshot] = await Promise.all([
+    const [patientSnapshot, analysesSnapshot, documentsSnapshot, revisionsSnapshot] = await Promise.all([
       getDoc(patientRef),
-      getDocs(collection(patientRef, "analyses"))
+      getDocs(collection(patientRef, "analyses")),
+      getDocs(collection(patientRef, "documents")),
+      getDocs(collection(patientRef, "revisions"))
     ]);
 
     if (currentPatientId !== patientId) return;
@@ -583,7 +680,9 @@ async function openPatientDetail(patientId) {
     currentPatientData = patient;
     renderPatientDetailHeader(patient);
     renderPatientClinicalRecord(patient);
-    renderAnalysisHistory(analysesSnapshot.docs);
+    renderPatientDocuments(documentsSnapshot.docs);
+    renderAnalysisHistory(analysesSnapshot.docs, revisionsSnapshot.docs);
+    resetDocumentUploadForm();
     setPatientRecordEditing(false);
     patientDetailStatus.hidden = true;
     patientDetailContent.hidden = false;
@@ -670,7 +769,7 @@ function renderReviewNode(container, key, value, path) {
     const heading = document.createElement("h4");
     heading.textContent = humanizeKey(key);
     group.appendChild(heading);
-    Object.entries(value).forEach(([childKey, childValue]) => {
+    orderedEntries(value).forEach(([childKey, childValue]) => {
       renderReviewNode(group, childKey, childValue, [...path, childKey]);
     });
     container.appendChild(group);
@@ -690,7 +789,7 @@ function renderReviewNode(container, key, value, path) {
 
 function renderExtraction(extraction) {
   reviewFields.innerHTML = "";
-  Object.entries(extraction).forEach(([sectionKey, sectionData]) => {
+  orderedEntries(extraction, CLINICAL_SECTION_ORDER).forEach(([sectionKey, sectionData]) => {
     const section = document.createElement("section");
     section.className = "review-section";
     const heading = document.createElement("h3");
@@ -698,7 +797,7 @@ function renderExtraction(extraction) {
     section.appendChild(heading);
 
     if (sectionData && typeof sectionData === "object" && !Array.isArray(sectionData)) {
-      Object.entries(sectionData).forEach(([key, value]) => {
+      orderedEntries(sectionData, CLINICAL_FIELD_ORDER[sectionKey] || []).forEach(([key, value]) => {
         renderReviewNode(section, key, value, [sectionKey, key]);
       });
     } else {
@@ -757,6 +856,56 @@ function readFileAsBase64(file) {
     reader.onload = () => resolve(String(reader.result).split(",")[1]);
     reader.readAsDataURL(file);
   });
+}
+
+async function isRealPdf(file) {
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  return hasPdfSignature(header);
+}
+
+async function hashFile(file) {
+  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return [...new Uint8Array(digest)]
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function analyzeDocumentFile(file, user) {
+  const [fileBase64, idToken, sha256] = await Promise.all([
+    readFileAsBase64(file),
+    user.getIdToken(),
+    hashFile(file)
+  ]);
+  const response = await fetch("/api/analyze", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${idToken}`
+    },
+    body: JSON.stringify({ fileBase64, mimeType: file.type })
+  });
+  const responseText = await response.text();
+  let extraction;
+  try {
+    extraction = JSON.parse(responseText);
+  } catch {
+    throw new Error("El servidor devolvió una respuesta no válida.");
+  }
+  if (!response.ok) {
+    throw new Error(extraction.error || "No se ha podido analizar el documento.");
+  }
+
+  return {
+    extraction,
+    sourceDocument: {
+      name: file.name,
+      mimeType: file.type,
+      size: file.size,
+      lastModified: file.lastModified || null,
+      sha256
+    },
+    analyzedAt: new Date().toISOString()
+  };
 }
 
 async function findPossibleDuplicate(user, name, nh) {
@@ -821,7 +970,65 @@ onAuthStateChanged(auth, async (user) => {
 backToPatientsButton.addEventListener("click", async () => {
   currentPatientId = null;
   currentPatientData = null;
+  resetDocumentUploadForm();
   await showPatientsView();
+});
+
+showDocumentUploadButton.addEventListener("click", () => {
+  showDocumentUploadButton.hidden = true;
+  patientDocumentUploadForm.hidden = false;
+  patientDocumentUploadStatus.textContent = "";
+});
+
+cancelDocumentUploadButton.addEventListener("click", () => {
+  resetDocumentUploadForm();
+});
+
+patientDocumentUploadForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const user = auth.currentUser;
+  const patientId = currentPatientId;
+  const file = existingPatientDocument.files?.[0];
+  if (!user || !patientId) return;
+  if (!file) {
+    patientDocumentUploadStatus.textContent = "Selecciona un archivo PDF.";
+    return;
+  }
+  if (file.type !== "application/pdf") {
+    patientDocumentUploadStatus.textContent = "Solo se admiten archivos PDF.";
+    return;
+  }
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    patientDocumentUploadStatus.textContent = "El PDF supera el límite de 8 MB.";
+    return;
+  }
+  if (!(await isRealPdf(file))) {
+    patientDocumentUploadStatus.textContent = "El archivo seleccionado no contiene un PDF válido.";
+    return;
+  }
+
+  try {
+    uploadPatientDocumentButton.disabled = true;
+    uploadPatientDocumentButton.textContent = "Analizando...";
+    patientDocumentUploadStatus.textContent = "Analizando el PDF temporalmente...";
+    currentAnalysisSession = {
+      ...(await analyzeDocumentFile(file, user)),
+      targetPatientId: patientId,
+      documentType: patientDocumentType.value,
+      documentDate: patientDocumentDate.value || null
+    };
+    existingPatientDocument.value = "";
+    renderExtraction(currentAnalysisSession.extraction);
+    saveReviewedPatientButton.textContent = "Guardar análisis";
+    showReviewPatientView();
+  } catch (error) {
+    console.error("Error analizando el documento:", error);
+    patientDocumentUploadStatus.textContent =
+      error.message || "No se ha podido analizar el documento.";
+  } finally {
+    uploadPatientDocumentButton.disabled = false;
+    uploadPatientDocumentButton.textContent = "Analizar documento";
+  }
 });
 
 editPatientRecordButton.addEventListener("click", () => {
@@ -856,7 +1063,7 @@ savePatientRecordButton.addEventListener("click", async () => {
     savePatientRecordButton.disabled = true;
     savePatientRecordButton.textContent = "Guardando...";
     const patientRef = doc(db, "patients", patientId);
-    const revisionRef = doc(collection(patientRef, "analyses"));
+    const revisionRef = doc(collection(patientRef, "revisions"));
     const revisionData = {
       schemaVersion: SCHEMA_VERSION,
       userId: user.uid,
@@ -923,9 +1130,14 @@ cancelPatientButton.addEventListener("click", async () => {
   await showPatientsView();
 });
 
-backToNewPatientButton.addEventListener("click", () => {
+backToNewPatientButton.addEventListener("click", async () => {
+  const targetPatientId = currentAnalysisSession?.targetPatientId;
   currentAnalysisSession = null;
   reviewFields.innerHTML = "";
+  if (targetPatientId) {
+    await openPatientDetail(targetPatientId);
+    return;
+  }
   showNewPatientView();
 });
 
@@ -955,42 +1167,19 @@ analyzePatientButton.addEventListener("click", async () => {
     alert("El PDF supera el límite de 8 MB.");
     return;
   }
+  if (!(await isRealPdf(file))) {
+    alert("El archivo seleccionado no contiene un PDF válido.");
+    return;
+  }
 
   try {
     analyzePatientButton.disabled = true;
     analyzePatientButton.textContent = "Analizando...";
-    const [fileBase64, idToken] = await Promise.all([
-      readFileAsBase64(file),
-      user.getIdToken()
-    ]);
-    const response = await fetch("/api/analyze", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`
-      },
-      body: JSON.stringify({ fileBase64, mimeType: file.type })
-    });
-    const responseText = await response.text();
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch {
-      throw new Error("El servidor devolvió una respuesta no válida.");
-    }
-    if (!response.ok) throw new Error(result.error || "No se ha podido analizar el documento.");
-
-    currentAnalysisSession = {
-      extraction: result,
-      sourceDocument: {
-        name: file.name,
-        mimeType: file.type,
-        size: file.size,
-        lastModified: file.lastModified || null
-      },
-      analyzedAt: new Date().toISOString()
-    };
-    renderExtraction(result);
+    currentAnalysisSession = await analyzeDocumentFile(file, user);
+    patientDocuments.value = "";
+    selectedDocuments.innerHTML = "";
+    renderExtraction(currentAnalysisSession.extraction);
+    saveReviewedPatientButton.textContent = "Guardar paciente";
     showReviewPatientView();
   } catch (error) {
     console.error(error);
@@ -1001,11 +1190,95 @@ analyzePatientButton.addEventListener("click", async () => {
   }
 });
 
+async function saveDocumentAnalysisForExistingPatient(user) {
+  const session = currentAnalysisSession;
+  const patientId = session.targetPatientId;
+  const patientRef = doc(db, "patients", patientId);
+  const documentRef = doc(patientRef, "documents", session.sourceDocument.sha256);
+  const analysisRef = doc(collection(patientRef, "analyses"));
+  const { reviewedExtraction, modifiedPaths, review } = applyHumanReview(
+    session.extraction,
+    user.uid
+  );
+  const documentData = {
+    schemaVersion: SCHEMA_VERSION,
+    userId: user.uid,
+    patientId,
+    analysisId: analysisRef.id,
+    tipo: session.documentType,
+    nombreOriginal: session.sourceDocument.name,
+    mimeType: session.sourceDocument.mimeType,
+    tamano: session.sourceDocument.size,
+    sha256: session.sourceDocument.sha256,
+    archivoConservado: false,
+    fechaDocumento: session.documentDate,
+    estado: DOCUMENT_STATUS.ANALYZED,
+    fechaCreacion: serverTimestamp(),
+    ultimaActualizacion: serverTimestamp()
+  };
+  const analysisData = {
+    schemaVersion: SCHEMA_VERSION,
+    userId: user.uid,
+    patientId,
+    documentId: documentRef.id,
+    estado: ANALYSIS_STATUS.REVIEWED,
+    documentoFuente: session.sourceDocument,
+    fechaAnalisisCliente: session.analyzedAt,
+    extraccionOriginal: session.extraction,
+    extraccionRevisada: reviewedExtraction,
+    revisionHumana: review,
+    camposModificados: modifiedPaths,
+    fechaCreacion: serverTimestamp()
+  };
+
+  await runTransaction(db, async (transaction) => {
+    const patientSnapshot = await transaction.get(patientRef);
+    const existingDocument = await transaction.get(documentRef);
+    if (!patientSnapshot.exists() || patientSnapshot.data().userId !== user.uid) {
+      const unavailableError = new Error("El paciente ya no está disponible.");
+      unavailableError.code = "patient/not-available";
+      throw unavailableError;
+    }
+    if (existingDocument.exists()) {
+      const duplicateError = new Error("Este mismo PDF ya fue analizado para el paciente.");
+      duplicateError.code = "document/already-exists";
+      throw duplicateError;
+    }
+
+    transaction.set(documentRef, documentData);
+    transaction.set(analysisRef, analysisData);
+    transaction.update(patientRef, {
+      ultimoAnalisisId: analysisRef.id,
+      ultimaActualizacion: serverTimestamp()
+    });
+  });
+
+  currentAnalysisSession = null;
+  reviewFields.innerHTML = "";
+  alert("Análisis guardado. El PDF original no se ha conservado.");
+  await openPatientDetail(patientId);
+}
+
 saveReviewedPatientButton.addEventListener("click", async () => {
   const user = auth.currentUser;
   if (!user) return alert("Debes iniciar sesión.");
   if (!currentAnalysisSession?.extraction) {
     alert("No hay datos analizados para guardar.");
+    return;
+  }
+
+  if (currentAnalysisSession.targetPatientId) {
+    try {
+      saveReviewedPatientButton.disabled = true;
+      saveReviewedPatientButton.textContent = "Guardando análisis...";
+      await saveDocumentAnalysisForExistingPatient(user);
+    } catch (error) {
+      console.error("Error guardando el análisis documental:", error);
+      alert(error.message || "No se ha podido guardar el análisis.");
+    } finally {
+      saveReviewedPatientButton.disabled = false;
+      saveReviewedPatientButton.textContent = "Guardar análisis";
+    }
     return;
   }
 
@@ -1040,6 +1313,11 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       ? doc(db, "patients", await createPatientDocumentId(user.uid, normalizedNH))
       : doc(collection(db, "patients"));
     const analysisRef = doc(collection(patientRef, "analyses"));
+    const documentRef = doc(
+      patientRef,
+      "documents",
+      currentAnalysisSession.sourceDocument.sha256
+    );
     const patientData = {
       schemaVersion: SCHEMA_VERSION,
       userId: user.uid,
@@ -1057,6 +1335,7 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       schemaVersion: SCHEMA_VERSION,
       userId: user.uid,
       patientId: patientRef.id,
+      documentId: documentRef.id,
       estado: ANALYSIS_STATUS.REVIEWED,
       documentoFuente: currentAnalysisSession.sourceDocument,
       fechaAnalisisCliente: currentAnalysisSession.analyzedAt,
@@ -1065,6 +1344,22 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       revisionHumana: review,
       camposModificados: modifiedPaths,
       fechaCreacion: serverTimestamp()
+    };
+    const documentData = {
+      schemaVersion: SCHEMA_VERSION,
+      userId: user.uid,
+      patientId: patientRef.id,
+      analysisId: analysisRef.id,
+      tipo: newPatientDocumentType.value,
+      nombreOriginal: currentAnalysisSession.sourceDocument.name,
+      mimeType: currentAnalysisSession.sourceDocument.mimeType,
+      tamano: currentAnalysisSession.sourceDocument.size,
+      sha256: currentAnalysisSession.sourceDocument.sha256,
+      archivoConservado: false,
+      fechaDocumento: null,
+      estado: DOCUMENT_STATUS.ANALYZED,
+      fechaCreacion: serverTimestamp(),
+      ultimaActualizacion: serverTimestamp()
     };
 
     await runTransaction(db, async (transaction) => {
@@ -1079,9 +1374,10 @@ saveReviewedPatientButton.addEventListener("click", async () => {
 
       transaction.set(patientRef, patientData);
       transaction.set(analysisRef, analysisData);
+      transaction.set(documentRef, documentData);
     });
 
-    alert("Paciente guardado correctamente.");
+    alert("Paciente y análisis guardados. El PDF original no se ha conservado.");
     resetPatientForm();
     await showPatientsView();
   } catch (error) {

@@ -47,10 +47,34 @@
     "camposModificados": "string[]",
     "fechaCreacion": "timestamp"
   },
+  "document": {
+    "path": "patients/{patientId}/documents/{documentId}",
+    "userId": "firebase-uid",
+    "patientId": "string",
+    "tipo": "piat_inicial|piat_revision|evaluacion|informe_clinico|informe_escolar|otro",
+    "nombreOriginal": "string",
+    "mimeType": "application/pdf",
+    "tamano": "number",
+    "fechaDocumento": "YYYY-MM-DD|null",
+    "sha256": "string",
+    "archivoConservado": false,
+    "estado": "procesando|analizado|error|archivado",
+    "fechaCreacion": "timestamp",
+    "ultimaActualizacion": "timestamp"
+  },
+  "revision": {
+    "path": "patients/{patientId}/revisions/{revisionId}",
+    "userId": "firebase-uid",
+    "patientId": "string",
+    "tipoEvento": "revision_manual",
+    "camposModificados": "string[]",
+    "cambios": "change[]",
+    "fechaCreacion": "timestamp"
+  },
   "states": {
     "patient": ["activo", "alta", "archivado"],
     "analysis": ["pendiente", "procesando", "revisado", "error"],
-    "document": ["subido", "procesando", "analizado", "error", "archivado"]
+    "document": ["procesando", "analizado", "error", "archivado"]
   },
   "compatibility": {
     "legacyPatientStatusField": "estado",

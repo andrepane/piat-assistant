@@ -3,15 +3,39 @@ import assert from "node:assert/strict";
 
 import {
   applyClinicalRecordEdits,
+  CLINICAL_SECTION_ORDER,
   createPatientDocumentId,
   getPatientClinicalRecord,
   getPatientName,
   getPatientStatus,
+  hasPdfSignature,
   normalizeMedicalRecordNumber,
   normalizeText,
+  orderedEntries,
   sortByNewest,
   valuesAreEqual
 } from "../src/patient-model.js";
+
+test("comprueba la firma real de un PDF", () => {
+  assert.equal(hasPdfSignature(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])), true);
+  assert.equal(hasPdfSignature(new Uint8Array([0x50, 0x44, 0x46])), false);
+});
+
+test("mantiene un orden clínico estable aunque Firestore reordene las claves", () => {
+  const record = { familia: {}, identificacion: {}, salud: {}, diagnostico: {} };
+  assert.deepEqual(
+    orderedEntries(record, CLINICAL_SECTION_ORDER).map(([key]) => key),
+    ["identificacion", "diagnostico", "salud", "familia"]
+  );
+  assert.deepEqual(
+    orderedEntries({ zeta: 1, alfa: 2, beta: 3 }).map(([key]) => key),
+    ["alfa", "beta", "zeta"]
+  );
+  assert.deepEqual(orderedEntries(["primero", "segundo"]), [
+    ["0", "primero"],
+    ["1", "segundo"]
+  ]);
+});
 
 test("considera iguales mapas de Firestore aunque cambie el orden de sus claves", () => {
   const loadedRecord = {
