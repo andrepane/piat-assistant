@@ -16,6 +16,14 @@ function printableValue(value, fallback = "No consta") {
   return String(value).trim() || fallback;
 }
 
+function cleanReportContent(value) {
+  return String(value || "")
+    .replace(/(?:Nota:\s*)?Este documento es un borrador sujeto a revisión profesional\.?/gi, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function loadBrowserScript(url, globalName) {
   if (window[globalName]) return Promise.resolve(window[globalName]);
   if (scriptPromises.has(url)) return scriptPromises.get(url);
@@ -51,7 +59,12 @@ export function buildPiatWordData({ patient = {}, sections = [], reportDate = ne
     }).format(reportDate)
   };
   for (const section of sections) {
-    if (section?.id) result[section.id] = printableValue(section.contenido, "Pendiente de completar");
+    if (section?.id) {
+      result[section.id] = printableValue(
+        cleanReportContent(section.contenido),
+        "Pendiente de completar"
+      );
+    }
   }
   return result;
 }

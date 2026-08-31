@@ -1646,7 +1646,7 @@ downloadReportWordButton.addEventListener("click", async () => {
     reportEditorStatus.textContent = error.message || "No se ha podido descargar el Word.";
   } finally {
     downloadReportWordButton.disabled = false;
-    downloadReportWordButton.textContent = "Descargar Word";
+    downloadReportWordButton.textContent = "Descargar contenido en Word";
   }
 });
 

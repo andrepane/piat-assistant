@@ -45,10 +45,10 @@ Desde la ficha del paciente se puede generar un primer borrador de PIAT de revis
 construye un contexto clínico minimizado a partir de la ficha consolidada, los documentos y las
 revisiones. No incluye el nombre, NH, fecha de nacimiento exacta, centros ni evidencias de extracción.
 Gemini devuelve un conjunto fijo de secciones editables y el borrador se guarda en `reports` con
-control de versión. Desde el editor se puede descargar un Word basado en una plantilla saneada del
-PIAT. La plantilla se completa íntegramente en el navegador: el nombre, el NH y los demás datos de
-cabecera no se envían a Gemini ni a un endpoint de exportación. El resultado siempre requiere
-revisión profesional y firma antes de su uso oficial.
+control de versión. Desde el editor se puede descargar un Word sencillo, en negro y sin maquetación
+oficial, pensado para revisar y copiar sus apartados en Pangea. El documento se completa íntegramente
+en el navegador: el nombre y el NH no se envían a Gemini ni a un endpoint de exportación. El
+resultado siempre requiere revisión profesional antes de su uso.
 
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
