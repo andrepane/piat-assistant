@@ -460,6 +460,51 @@ button:hover {
   font-size: 13px;
 }
 
+.section-description {
+  margin: -8px 0 14px;
+  color: #6b7280;
+}
+
+.document-contribution {
+  margin-top: 14px;
+  border-top: 1px solid #edf0f3;
+}
+
+.document-contribution summary {
+  padding: 14px 0 2px;
+  color: #1f4f7a;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.document-contribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 14px;
+}
+
+.document-contribution h5 {
+  margin: 0 0 8px;
+  color: #374151;
+  font-size: 14px;
+}
+
+.document-contribution-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.document-contribution-list li + li {
+  margin-top: 5px;
+}
+
+.document-reviewed-fields {
+  margin-top: 16px;
+}
+
 @media (max-width: 640px) {
   .page-heading,
   .section-heading,
@@ -476,6 +521,10 @@ button:hover {
   .document-form-grid {
     grid-template-columns: 1fr;
     gap: 0;
+  }
+
+  .document-contribution-grid {
+    grid-template-columns: 1fr;
   }
 
   .clinical-field-meta {

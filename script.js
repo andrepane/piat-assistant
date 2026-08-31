@@ -37,6 +37,7 @@ import {
   getPatientAge,
   getPatientClinicalRecord,
   sortByNewest,
+  linkDocumentsWithAnalyses,
   applyClinicalRecordEdits,
   applyClinicalComparison,
   buildClinicalComparison,
@@ -563,7 +564,80 @@ function formatDocumentDate(value) {
   return year && month && day ? `${day}/${month}/${year}` : formatTimestamp(value);
 }
 
-function renderPatientDocuments(documentSnapshots) {
+function createFieldPathList(paths, emptyMessage) {
+  const list = document.createElement("ul");
+  list.className = "document-contribution-list";
+  if (!paths?.length) {
+    const item = document.createElement("li");
+    item.className = "clinical-value-empty";
+    item.textContent = emptyMessage;
+    list.appendChild(item);
+    return list;
+  }
+
+  paths.forEach((path) => {
+    const item = document.createElement("li");
+    const segments = String(path).split(".");
+    const section = SECTION_LABELS[segments[0]] || humanizeKey(segments[0]);
+    item.textContent = `${section} · ${segments.slice(1).map(humanizeKey).join(" · ")}`;
+    list.appendChild(item);
+  });
+  return list;
+}
+
+function renderDocumentContribution(analysis) {
+  const disclosure = document.createElement("details");
+  disclosure.className = "document-contribution";
+  const summary = document.createElement("summary");
+  summary.textContent = "Ver aportación a la ficha";
+  disclosure.appendChild(summary);
+
+  if (!analysis) {
+    const unavailable = document.createElement("p");
+    unavailable.className = "analysis-storage-notice";
+    unavailable.textContent = "No hay detalle de extracción disponible para este registro.";
+    disclosure.appendChild(unavailable);
+    return disclosure;
+  }
+
+  const comparison = analysis.comparacionFicha;
+  const proposedPaths = comparison?.camposPropuestos || [];
+  const incorporatedPaths = comparison?.camposIncorporados || [];
+  const manualPaths = analysis.camposModificados || [];
+  const grid = document.createElement("div");
+  grid.className = "document-contribution-grid";
+
+  const columns = comparison
+    ? [
+        ["Cambios propuestos", proposedPaths, "No propuso cambios frente a la ficha."],
+        ["Incorporados a la ficha", incorporatedPaths, "No se incorporó ningún cambio."]
+      ]
+    : [
+        ["Aportación", [], "Este documento creó la ficha clínica inicial."],
+        ["Corregidos al revisar", manualPaths, "No se modificaron datos durante la revisión."]
+      ];
+
+  columns.forEach(([titleText, paths, emptyMessage]) => {
+    const column = document.createElement("section");
+    const title = document.createElement("h5");
+    title.textContent = titleText;
+    column.append(title, createFieldPathList(paths, emptyMessage));
+    grid.appendChild(column);
+  });
+  disclosure.appendChild(grid);
+
+  if (comparison && manualPaths.length > 0) {
+    const reviewed = document.createElement("section");
+    reviewed.className = "document-reviewed-fields";
+    const title = document.createElement("h5");
+    title.textContent = "Corregidos antes de comparar";
+    reviewed.append(title, createFieldPathList(manualPaths, ""));
+    disclosure.appendChild(reviewed);
+  }
+  return disclosure;
+}
+
+function renderPatientDocuments(documentSnapshots, analysisSnapshots) {
   patientDocumentsList.innerHTML = "";
   if (documentSnapshots.length === 0) {
     const empty = document.createElement("p");
@@ -573,8 +647,12 @@ function renderPatientDocuments(documentSnapshots) {
     return;
   }
 
+  const analyses = analysisSnapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() }));
   const documents = sortByNewest(
-    documentSnapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+    linkDocumentsWithAnalyses(
+      documentSnapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+      analyses
+    ),
     (documentData) => documentData.fechaCreacion
   );
 
@@ -599,7 +677,16 @@ function renderPatientDocuments(documentSnapshots) {
           (documentData.tipo ? humanizeKey(documentData.tipo) : "No indicado")
       ),
       createProfileItem("Fecha del documento", formatDocumentDate(documentData.fechaDocumento)),
-      createProfileItem("Tamaño", formatFileSize(documentData.tamano))
+      createProfileItem(
+        "Analizado",
+        formatTimestamp(
+          documentData.analysis?.fechaCreacion || documentData.analysis?.fechaAnalisisCliente
+        )
+      ),
+      createProfileItem(
+        "Formato enviado",
+        documentData.modoEntrada === "anonymized_text" ? "Texto anonimizado" : "PDF"
+      )
     );
 
     const note = document.createElement("p");
@@ -609,25 +696,27 @@ function renderPatientDocuments(documentSnapshots) {
       : documentData.modoEntrada === "anonymized_text"
         ? "Se envió únicamente texto anonimizado; el Word original no salió del dispositivo."
         : "Se conserva la información extraída; el PDF original no está almacenado.";
-    card.append(heading, details, note);
+    card.append(heading, details, note, renderDocumentContribution(documentData.analysis));
     patientDocumentsList.appendChild(card);
   });
 }
 
-function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
+function renderAnalysisHistory(analysisDocuments, revisionDocuments = [], documentSnapshots = []) {
   patientAnalysisHistory.innerHTML = "";
-
-  if (analysisDocuments.length === 0 && revisionDocuments.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "empty-detail-message";
-    empty.textContent = "No hay análisis guardados para este paciente.";
-    patientAnalysisHistory.appendChild(empty);
-    return;
-  }
-
+  const linkedDocumentAnalysisIds = new Set(
+    documentSnapshots
+      .map((documentSnapshot) => documentSnapshot.data().analysisId)
+      .filter(Boolean)
+  );
+  const linkedDocumentIds = new Set(documentSnapshots.map((documentSnapshot) => documentSnapshot.id));
   const analyses = sortByNewest(
     [
-      ...analysisDocuments.map((analysisDocument) => ({
+      ...analysisDocuments
+        .filter((analysisDocument) =>
+          !linkedDocumentAnalysisIds.has(analysisDocument.id) &&
+          !linkedDocumentIds.has(analysisDocument.data().documentId)
+        )
+        .map((analysisDocument) => ({
       id: analysisDocument.id,
       ...analysisDocument.data()
       })),
@@ -638,6 +727,14 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
     ],
     (analysis) => analysis.fechaCreacion || analysis.fechaAnalisisCliente
   );
+
+  if (analyses.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent = "Todavía no hay ediciones adicionales en la ficha.";
+    patientAnalysisHistory.appendChild(empty);
+    return;
+  }
 
   analyses.forEach((analysis) => {
     const card = document.createElement("article");
@@ -726,8 +823,12 @@ async function openPatientDetail(patientId) {
     currentPatientData = patient;
     renderPatientDetailHeader(patient);
     renderPatientClinicalRecord(patient);
-    renderPatientDocuments(documentsSnapshot.docs);
-    renderAnalysisHistory(analysesSnapshot.docs, revisionsSnapshot.docs);
+    renderPatientDocuments(documentsSnapshot.docs, analysesSnapshot.docs);
+    renderAnalysisHistory(
+      analysesSnapshot.docs,
+      revisionsSnapshot.docs,
+      documentsSnapshot.docs
+    );
     resetDocumentUploadForm();
     setPatientRecordEditing(false);
     patientDetailStatus.hidden = true;
