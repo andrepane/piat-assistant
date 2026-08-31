@@ -63,7 +63,8 @@ REGLAS OBLIGATORIAS:
 - No incluyas nombres, NH, fechas de nacimiento exactas, centros ni profesionales identificables.
 - Usa lenguaje clínico claro, respetuoso, centrado en el menor y comprensible para la familia.
 - Los objetivos deben ser funcionales y estar basados exclusivamente en necesidades presentes en los datos.
-- No presentes el texto como definitivo: es un borrador sujeto a revisión profesional.
+- Redacta directamente el contenido clínico de cada apartado.
+- No incluyas avisos, notas, aclaraciones sobre la IA ni frases que indiquen que es un borrador.
 - Devuelve únicamente JSON válido con esta estructura y en este orden:
 ${JSON.stringify({ titulo: "Plan de Intervención de Atención Temprana de Revisión", secciones: sectionSchema })}
 `;

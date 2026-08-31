@@ -43,3 +43,15 @@ test("buildPiatWordFilename removes unsafe filename characters", () => {
     "piat-revision-alex-ejemplo.docx"
   );
 });
+
+test("buildPiatWordData removes internal draft notices from the exported content", () => {
+  const data = buildPiatWordData({
+    patient: { nombre: "Paciente" },
+    sections: [{
+      id: "informacion_diagnostica_y_medica",
+      contenido: "Contenido clínico. Nota: Este documento es un borrador sujeto a revisión profesional."
+    }],
+    reportDate: new Date("2026-08-31T12:00:00Z")
+  });
+  assert.equal(data.informacion_diagnostica_y_medica, "Contenido clínico.");
+});
