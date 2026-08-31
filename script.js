@@ -138,10 +138,16 @@ const cancelDocumentUploadButton = document.getElementById("cancelDocumentUpload
 const uploadPatientDocumentButton = document.getElementById("uploadPatientDocumentButton");
 const patientDocumentUploadStatus = document.getElementById("patientDocumentUploadStatus");
 const patientDocumentsList = document.getElementById("patientDocumentsList");
+const privacyReviewDialog = document.getElementById("privacyReviewDialog");
+const privacyFileName = document.getElementById("privacyFileName");
+const privacyConfirmationCheckbox = document.getElementById("privacyConfirmationCheckbox");
+const cancelPrivacyReviewButton = document.getElementById("cancelPrivacyReviewButton");
+const confirmPrivacyReviewButton = document.getElementById("confirmPrivacyReviewButton");
 
 let currentAnalysisSession = null;
 let currentPatientId = null;
 let currentPatientData = null;
+let resolvePrivacyReview = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -870,7 +876,49 @@ async function hashFile(file) {
     .join("");
 }
 
-async function analyzeDocumentFile(file, user) {
+function requestPrivacyConfirmation(file) {
+  if (resolvePrivacyReview) resolvePrivacyReview(null);
+  privacyFileName.textContent = `Archivo que se enviará: ${file.name}`;
+  privacyConfirmationCheckbox.checked = false;
+  confirmPrivacyReviewButton.disabled = true;
+  privacyReviewDialog.showModal();
+
+  return new Promise((resolve) => {
+    resolvePrivacyReview = resolve;
+  });
+}
+
+function closePrivacyReview(confirmation = null) {
+  const resolve = resolvePrivacyReview;
+  resolvePrivacyReview = null;
+  privacyReviewDialog.close();
+  if (resolve) resolve(confirmation);
+}
+
+privacyConfirmationCheckbox.addEventListener("change", () => {
+  confirmPrivacyReviewButton.disabled = !privacyConfirmationCheckbox.checked;
+});
+
+cancelPrivacyReviewButton.addEventListener("click", () => closePrivacyReview());
+
+confirmPrivacyReviewButton.addEventListener("click", () => {
+  if (!privacyConfirmationCheckbox.checked) return;
+  closePrivacyReview({
+    confirmed: true,
+    confirmedAt: new Date().toISOString(),
+    checklistVersion: 1
+  });
+});
+
+privacyReviewDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closePrivacyReview();
+});
+
+async function analyzeDocumentFile(file, user, privacyReview) {
+  if (!privacyReview?.confirmed) {
+    throw new Error("Debes confirmar que el PDF está anonimizado antes de enviarlo.");
+  }
   const [fileBase64, idToken, sha256] = await Promise.all([
     readFileAsBase64(file),
     user.getIdToken(),
@@ -882,7 +930,11 @@ async function analyzeDocumentFile(file, user) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${idToken}`
     },
-    body: JSON.stringify({ fileBase64, mimeType: file.type })
+    body: JSON.stringify({
+      fileBase64,
+      mimeType: file.type,
+      privacyConfirmed: true
+    })
   });
   const responseText = await response.text();
   let extraction;
@@ -904,7 +956,8 @@ async function analyzeDocumentFile(file, user) {
       lastModified: file.lastModified || null,
       sha256
     },
-    analyzedAt: new Date().toISOString()
+    analyzedAt: new Date().toISOString(),
+    privacyReview
   };
 }
 
@@ -1007,12 +1060,18 @@ patientDocumentUploadForm.addEventListener("submit", async (event) => {
     return;
   }
 
+  const privacyReview = await requestPrivacyConfirmation(file);
+  if (!privacyReview) {
+    patientDocumentUploadStatus.textContent = "Envío cancelado. El PDF no ha salido del dispositivo.";
+    return;
+  }
+
   try {
     uploadPatientDocumentButton.disabled = true;
     uploadPatientDocumentButton.textContent = "Analizando...";
     patientDocumentUploadStatus.textContent = "Analizando el PDF temporalmente...";
     currentAnalysisSession = {
-      ...(await analyzeDocumentFile(file, user)),
+      ...(await analyzeDocumentFile(file, user, privacyReview)),
       targetPatientId: patientId,
       documentType: patientDocumentType.value,
       documentDate: patientDocumentDate.value || null
@@ -1172,10 +1231,13 @@ analyzePatientButton.addEventListener("click", async () => {
     return;
   }
 
+  const privacyReview = await requestPrivacyConfirmation(file);
+  if (!privacyReview) return;
+
   try {
     analyzePatientButton.disabled = true;
     analyzePatientButton.textContent = "Analizando...";
-    currentAnalysisSession = await analyzeDocumentFile(file, user);
+    currentAnalysisSession = await analyzeDocumentFile(file, user, privacyReview);
     patientDocuments.value = "";
     selectedDocuments.innerHTML = "";
     renderExtraction(currentAnalysisSession.extraction);
@@ -1227,6 +1289,7 @@ async function saveDocumentAnalysisForExistingPatient(user) {
     extraccionOriginal: session.extraction,
     extraccionRevisada: reviewedExtraction,
     revisionHumana: review,
+    revisionPrivacidad: session.privacyReview,
     camposModificados: modifiedPaths,
     fechaCreacion: serverTimestamp()
   };
@@ -1342,6 +1405,7 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       extraccionOriginal: currentAnalysisSession.extraction,
       extraccionRevisada: reviewedExtraction,
       revisionHumana: review,
+      revisionPrivacidad: currentAnalysisSession.privacyReview,
       camposModificados: modifiedPaths,
       fechaCreacion: serverTimestamp()
     };

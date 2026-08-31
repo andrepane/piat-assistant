@@ -17,6 +17,12 @@ Vercel. Se conserva la extracción revisada, los metadatos necesarios y una huel
 identificar el archivo sin guardar su contenido. Los originales deben permanecer en el sistema
 documental autorizado del centro.
 
+Antes de cada envío, la aplicación muestra una revisión de privacidad obligatoria. El usuario debe
+confirmar que la copia no contiene nombre, NH ni otros identificadores. El backend rechaza las
+peticiones que no incluyan esa confirmación y el análisis conserva la fecha y la versión de la
+revisión realizada. Esta barrera no anonimiza automáticamente el PDF ni sustituye su comprobación
+manual.
+
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
 - Estados de documento previstos: `subido`, `procesando`, `analizado`, `error`, `archivado`.

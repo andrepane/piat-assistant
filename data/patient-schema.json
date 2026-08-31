@@ -43,6 +43,11 @@
     "documentoFuente": "fileMetadata",
     "extraccionOriginal": "clinicalRecord",
     "extraccionRevisada": "clinicalRecord",
+    "revisionPrivacidad": {
+      "confirmed": true,
+      "confirmedAt": "ISO-8601",
+      "checklistVersion": 1
+    },
     "revisionHumana": "reviewMetadata",
     "camposModificados": "string[]",
     "fechaCreacion": "timestamp"
