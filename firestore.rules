@@ -82,6 +82,28 @@ service cloud.firestore {
         allow delete: if ownsPatient(patientId)
           && resource.data.userId == request.auth.uid;
       }
+
+      match /reports/{reportId} {
+        allow read: if ownsPatient(patientId);
+
+        allow create: if ownsPatientAfterWrite(patientId)
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.patientId == patientId
+          && request.resource.data.tipo == "piat_revision"
+          && request.resource.data.estado == "borrador";
+
+        allow update: if ownsPatient(patientId)
+          && resource.data.userId == request.auth.uid
+          && request.resource.data.userId == request.auth.uid
+          && request.resource.data.patientId == patientId
+          && request.resource.data.tipo == resource.data.tipo
+          && request.resource.data.estado == "borrador"
+          && request.resource.data.version is int
+          && request.resource.data.version == resource.data.version + 1;
+
+        allow delete: if ownsPatient(patientId)
+          && resource.data.userId == request.auth.uid;
+      }
     }
   }
 }
