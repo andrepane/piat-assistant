@@ -178,6 +178,23 @@ export function sortByNewest(items, getTimestamp) {
   );
 }
 
+export function linkDocumentsWithAnalyses(documents = [], analyses = []) {
+  const analysesById = new Map(analyses.map((analysis) => [analysis.id, analysis]));
+  const analysesByDocumentId = new Map(
+    analyses
+      .filter((analysis) => analysis.documentId)
+      .map((analysis) => [analysis.documentId, analysis])
+  );
+
+  return documents.map((documentData) => ({
+    ...documentData,
+    analysis:
+      analysesById.get(documentData.analysisId) ||
+      analysesByDocumentId.get(documentData.id) ||
+      null
+  }));
+}
+
 export function orderedEntries(value, preferredKeys = []) {
   if (!value || typeof value !== "object") return [];
   if (Array.isArray(value)) return Object.entries(value);
