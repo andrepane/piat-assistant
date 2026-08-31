@@ -48,6 +48,8 @@
       "confirmed": true,
       "confirmedAt": "ISO-8601",
       "checklistVersion": 1,
+      "method": "pdf_local_scan|docx_local_text|null",
+      "automaticReplacementTypes": "string[]|null",
       "localScan": {
         "status": "inspected|unreadable|error|unknown",
         "findingTypes": "string[]"
@@ -67,11 +69,12 @@
     "patientId": "string",
     "tipo": "piat_inicial|piat_revision|evaluacion|informe_clinico|informe_escolar|otro",
     "nombreOriginal": "string",
-    "mimeType": "application/pdf",
+    "mimeType": "application/pdf|application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     "tamano": "number",
     "fechaDocumento": "YYYY-MM-DD|null",
     "sha256": "string",
     "archivoConservado": false,
+    "modoEntrada": "transient_pdf|anonymized_text",
     "estado": "procesando|analizado|error|archivado",
     "fechaCreacion": "timestamp",
     "ultimaActualizacion": "timestamp"

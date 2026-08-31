@@ -664,3 +664,33 @@ button:disabled {
 .privacy-actions {
   justify-content: flex-end;
 }
+
+.word-anonymization-dialog {
+  width: min(820px, calc(100% - 32px));
+}
+
+.word-text-label {
+  display: block;
+  margin: 18px 0 7px;
+  font-weight: 700;
+}
+
+#wordAnonymizedText {
+  width: 100%;
+  min-height: 360px;
+  padding: 14px;
+  border: 1px solid #94a3b8;
+  border-radius: 9px;
+  font: 14px/1.5 Arial, sans-serif;
+  resize: vertical;
+}
+
+.word-anonymization-status {
+  margin: 10px 0;
+  color: #475569;
+}
+
+.word-anonymization-blocked {
+  color: #991b1b;
+  font-weight: 700;
+}
