@@ -158,6 +158,45 @@
           <p class="section-description">Ediciones de la ficha y actividad antigua no vinculada a un documento.</p>
           <div id="patientAnalysisHistory"></div>
         </section>
+
+        <section class="card">
+          <div class="section-heading">
+            <div>
+              <h3>Informes</h3>
+              <p>Genera y conserva borradores revisables a partir de la ficha longitudinal.</p>
+            </div>
+            <button id="generatePiatRevisionButton" type="button">+ Generar PIAT de revisión</button>
+          </div>
+          <p id="patientReportsStatus" role="status"></p>
+          <div id="patientReportsList"></div>
+        </section>
+      </section>
+    </section>
+
+    <!-- EDITOR DE INFORME -->
+    <section id="reportEditorView" hidden>
+      <div class="page-heading patient-detail-heading">
+        <div>
+          <button id="backToPatientFromReportButton" type="button" class="text-button">
+            ← Volver a la ficha
+          </button>
+          <h2 id="reportEditorTitle">PIAT de revisión</h2>
+          <p id="reportEditorSubtitle">Borrador generado para revisión profesional.</p>
+        </div>
+      </div>
+
+      <section class="card report-privacy-notice">
+        <strong>Privacidad:</strong> el nombre y el NH no se han enviado a Gemini. Revisa todo el
+        contenido antes de utilizarlo en un documento oficial.
+      </section>
+
+      <section class="card">
+        <div id="reportEditorSections"></div>
+        <div class="actions">
+          <button id="cancelReportChangesButton" type="button" class="secondary-button">Descartar cambios</button>
+          <button id="saveReportDraftButton" type="button">Guardar borrador</button>
+        </div>
+        <p id="reportEditorStatus" role="status"></p>
       </section>
     </section>
 
