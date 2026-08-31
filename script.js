@@ -55,6 +55,12 @@ import {
   REPORT_STATUS,
   REPORT_TYPE
 } from "./src/report-model.js";
+import {
+  buildPiatWordData,
+  buildPiatWordFilename,
+  createPiatWordBlob,
+  downloadBlob
+} from "./src/piat-word-export.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
@@ -168,6 +174,7 @@ const reportEditorTitle = document.getElementById("reportEditorTitle");
 const reportEditorSubtitle = document.getElementById("reportEditorSubtitle");
 const reportEditorSections = document.getElementById("reportEditorSections");
 const cancelReportChangesButton = document.getElementById("cancelReportChangesButton");
+const downloadReportWordButton = document.getElementById("downloadReportWordButton");
 const saveReportDraftButton = document.getElementById("saveReportDraftButton");
 const reportEditorStatus = document.getElementById("reportEditorStatus");
 const privacyReviewDialog = document.getElementById("privacyReviewDialog");
@@ -1608,6 +1615,38 @@ saveReportDraftButton.addEventListener("click", async () => {
   } finally {
     saveReportDraftButton.disabled = false;
     saveReportDraftButton.textContent = "Guardar borrador";
+  }
+});
+
+downloadReportWordButton.addEventListener("click", async () => {
+  if (!currentReportSession || !currentPatientData) return;
+  const sections = [...reportEditorSections.querySelectorAll("[data-report-section-id]")].map(
+    (textarea) => ({
+      id: textarea.dataset.reportSectionId,
+      titulo: textarea.dataset.reportSectionTitle,
+      contenido: textarea.value.trim()
+    })
+  );
+  if (sections.every((section) => !section.contenido)) {
+    reportEditorStatus.textContent = "El informe no puede quedar completamente vacío.";
+    return;
+  }
+
+  try {
+    downloadReportWordButton.disabled = true;
+    downloadReportWordButton.textContent = "Preparando Word...";
+    reportEditorStatus.textContent = "";
+    const data = buildPiatWordData({ patient: currentPatientData, sections });
+    const blob = await createPiatWordBlob(data);
+    downloadBlob(blob, buildPiatWordFilename(currentPatientData));
+    reportEditorStatus.textContent =
+      "Word descargado. Revisa su contenido y añade las firmas antes de utilizarlo oficialmente.";
+  } catch (error) {
+    console.error("Error exportando el PIAT:", error);
+    reportEditorStatus.textContent = error.message || "No se ha podido descargar el Word.";
+  } finally {
+    downloadReportWordButton.disabled = false;
+    downloadReportWordButton.textContent = "Descargar Word";
   }
 });
 

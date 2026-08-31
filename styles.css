@@ -510,6 +510,12 @@ button:hover {
   color: #4b5563;
 }
 
+.local-export-notice {
+  display: block;
+  margin-top: 12px;
+  color: #4b5563;
+}
+
 .patient-report-card {
   display: flex;
   align-items: center;
