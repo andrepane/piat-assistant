@@ -38,6 +38,8 @@ import {
   getPatientClinicalRecord,
   sortByNewest,
   applyClinicalRecordEdits,
+  applyClinicalComparison,
+  buildClinicalComparison,
   orderedEntries
 } from "./src/patient-model.js";
 import { inspectPdfPrivacy } from "./src/privacy-scanner.js";
@@ -105,9 +107,13 @@ const patientsView = document.getElementById("patientsView");
 const patientDetailView = document.getElementById("patientDetailView");
 const newPatientView = document.getElementById("newPatientView");
 const reviewPatientView = document.getElementById("reviewPatientView");
+const comparisonPatientView = document.getElementById("comparisonPatientView");
 const reviewFields = document.getElementById("reviewFields");
 const backToNewPatientButton = document.getElementById("backToNewPatientButton");
 const saveReviewedPatientButton = document.getElementById("saveReviewedPatientButton");
+const clinicalComparisonList = document.getElementById("clinicalComparisonList");
+const backToExtractionReviewButton = document.getElementById("backToExtractionReviewButton");
+const saveClinicalComparisonButton = document.getElementById("saveClinicalComparisonButton");
 const newPatientButton = document.getElementById("newPatientButton");
 const cancelPatientButton = document.getElementById("cancelPatientButton");
 const analyzePatientButton = document.getElementById("analyzePatientButton");
@@ -177,6 +183,7 @@ function setVisibleView(view) {
   patientDetailView.hidden = view !== patientDetailView;
   newPatientView.hidden = view !== newPatientView;
   reviewPatientView.hidden = view !== reviewPatientView;
+  comparisonPatientView.hidden = view !== comparisonPatientView;
 }
 
 async function showPatientsView() {
@@ -607,7 +614,6 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
       })),
       ...revisionDocuments.map((revisionDocument) => ({
         id: revisionDocument.id,
-        tipoEvento: "revision_manual",
         ...revisionDocument.data()
       }))
     ],
@@ -621,9 +627,13 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
     heading.className = "analysis-history-heading";
     const title = document.createElement("h4");
     const isManualRevision = analysis.tipoEvento === "revision_manual";
+    const isDocumentIncorporation = analysis.tipoEvento === "incorporacion_documento";
+    const isRecordRevision = isManualRevision || isDocumentIncorporation;
     title.textContent = isManualRevision
       ? "Edición manual de la ficha"
-      : analysis.documentoFuente?.name || "Documento sin nombre";
+      : isDocumentIncorporation
+        ? "Datos incorporados desde un documento"
+        : analysis.documentoFuente?.name || "Documento sin nombre";
     const status = document.createElement("span");
     status.className = "status-badge status-badge-secondary";
     status.textContent = humanizeKey(analysis.estado || "sin estado");
@@ -637,8 +647,12 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
         formatTimestamp(analysis.fechaCreacion || analysis.fechaAnalisisCliente)
       ),
       createProfileItem(
-        isManualRevision ? "Tipo" : "Tamaño",
-        isManualRevision ? "Revisión humana" : formatFileSize(analysis.documentoFuente?.size)
+        isRecordRevision ? "Tipo" : "Tamaño",
+        isManualRevision
+          ? "Revisión humana"
+          : isDocumentIncorporation
+            ? "Actualización longitudinal"
+            : formatFileSize(analysis.documentoFuente?.size)
       ),
       createProfileItem(
         "Campos modificados",
@@ -648,7 +662,7 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
 
     const storageNotice = document.createElement("p");
     storageNotice.className = "analysis-storage-notice";
-    storageNotice.textContent = isManualRevision
+    storageNotice.textContent = isRecordRevision
       ? `Cambios: ${analysis.camposModificados?.map(humanizeKey).join(", ") || "sin detalle"}.`
       : analysis.documentId
         ? "Análisis vinculado al registro documental; el PDF original no se conserva."
@@ -1323,15 +1337,99 @@ analyzePatientButton.addEventListener("click", async () => {
   }
 });
 
-async function saveDocumentAnalysisForExistingPatient(user) {
+function formatComparisonValue(value) {
+  if (value === null || value === undefined || value === "") return "No registrado";
+  if (Array.isArray(value)) {
+    return value.length > 0
+      ? value.map((item) => typeof item === "object" ? JSON.stringify(item) : item).join(" · ")
+      : "No registrado";
+  }
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function renderClinicalComparison(comparisons) {
+  clinicalComparisonList.innerHTML = "";
+  if (comparisons.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent =
+      "El documento no aporta cambios útiles frente a la ficha actual. Se guardará en el historial.";
+    clinicalComparisonList.appendChild(empty);
+    saveClinicalComparisonButton.textContent = "Guardar solo análisis";
+    return;
+  }
+
+  saveClinicalComparisonButton.textContent = "Guardar selección";
+  comparisons.forEach((comparison) => {
+    const route = comparison.path.join(".");
+    const card = document.createElement("article");
+    card.className = "comparison-card";
+
+    const heading = document.createElement("div");
+    heading.className = "comparison-heading";
+    const title = document.createElement("h3");
+    title.textContent = humanizeKey(comparison.path.at(-1));
+    const section = document.createElement("span");
+    section.textContent = SECTION_LABELS[comparison.path[0]] || humanizeKey(comparison.path[0]);
+    heading.append(title, section);
+
+    const values = document.createElement("div");
+    values.className = "comparison-values";
+    const current = document.createElement("div");
+    current.innerHTML = "<strong>Ficha actual</strong>";
+    const currentText = document.createElement("p");
+    currentText.textContent = formatComparisonValue(comparison.currentValue);
+    current.appendChild(currentText);
+    const proposed = document.createElement("div");
+    proposed.innerHTML = "<strong>Documento nuevo</strong>";
+    const proposedText = document.createElement("p");
+    proposedText.textContent = formatComparisonValue(comparison.newValue);
+    proposed.appendChild(proposedText);
+    values.append(current, proposed);
+
+    const choice = document.createElement("label");
+    choice.className = "comparison-choice";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.dataset.comparisonPath = route;
+    const choiceText = document.createElement("span");
+    choiceText.textContent = "Incorporar el dato nuevo a la ficha";
+    choice.append(checkbox, choiceText);
+    card.append(heading, values, choice);
+    clinicalComparisonList.appendChild(card);
+  });
+}
+
+function showClinicalComparison(user) {
+  const humanReviewResult = applyHumanReview(currentAnalysisSession.extraction, user.uid);
+  const baseRecord = structuredClone(getPatientClinicalRecord(currentPatientData) || {});
+  const comparisons = buildClinicalComparison(baseRecord, humanReviewResult.reviewedExtraction);
+  currentAnalysisSession.comparison = { humanReviewResult, baseRecord, comparisons };
+  renderClinicalComparison(comparisons);
+  setVisibleView(comparisonPatientView);
+}
+
+backToExtractionReviewButton.addEventListener("click", () => {
+  if (currentAnalysisSession) delete currentAnalysisSession.comparison;
+  setVisibleView(reviewPatientView);
+});
+
+async function saveDocumentAnalysisForExistingPatient(user, selectedPaths) {
   const session = currentAnalysisSession;
   const patientId = session.targetPatientId;
   const patientRef = doc(db, "patients", patientId);
   const documentRef = doc(patientRef, "documents", session.sourceDocument.sha256);
   const analysisRef = doc(collection(patientRef, "analyses"));
-  const { reviewedExtraction, modifiedPaths, review } = applyHumanReview(
-    session.extraction,
-    user.uid
+  const revisionRef = doc(collection(patientRef, "revisions"));
+  const { humanReviewResult, baseRecord, comparisons } = session.comparison;
+  const { reviewedExtraction, modifiedPaths, review } = humanReviewResult;
+  const incorporatedAt = new Date().toISOString();
+  const { updatedRecord, changes } = applyClinicalComparison(
+    baseRecord,
+    comparisons,
+    selectedPaths,
+    { analysisId: analysisRef.id, incorporatedAt }
   );
   const documentData = {
     schemaVersion: SCHEMA_VERSION,
@@ -1362,6 +1460,21 @@ async function saveDocumentAnalysisForExistingPatient(user) {
     revisionHumana: review,
     revisionPrivacidad: session.privacyReview,
     camposModificados: modifiedPaths,
+    comparacionFicha: {
+      camposPropuestos: comparisons.map((comparison) => comparison.path.join(".")),
+      camposIncorporados: changes.map((change) => change.ruta)
+    },
+    fechaCreacion: serverTimestamp()
+  };
+  const revisionData = {
+    schemaVersion: SCHEMA_VERSION,
+    userId: user.uid,
+    patientId,
+    analysisId: analysisRef.id,
+    tipoEvento: "incorporacion_documento",
+    estado: ANALYSIS_STATUS.REVIEWED,
+    camposModificados: changes.map((change) => change.ruta),
+    cambios: changes,
     fechaCreacion: serverTimestamp()
   };
 
@@ -1378,20 +1491,59 @@ async function saveDocumentAnalysisForExistingPatient(user) {
       duplicateError.code = "document/already-exists";
       throw duplicateError;
     }
+    if (!valuesAreEqual(getPatientClinicalRecord(patientSnapshot.data()) || {}, baseRecord)) {
+      const conflictError = new Error("La ficha cambió mientras comparabas los datos.");
+      conflictError.code = "patient/comparison-conflict";
+      throw conflictError;
+    }
 
     transaction.set(documentRef, documentData);
     transaction.set(analysisRef, analysisData);
-    transaction.update(patientRef, {
+    if (changes.length > 0) transaction.set(revisionRef, revisionData);
+    const patientUpdate = {
       ultimoAnalisisId: analysisRef.id,
       ultimaActualizacion: serverTimestamp()
-    });
+    };
+    if (changes.length > 0) {
+      patientUpdate.ficha = updatedRecord;
+      patientUpdate.ultimaIncorporacionId = revisionRef.id;
+    }
+    transaction.update(patientRef, patientUpdate);
   });
 
   currentAnalysisSession = null;
   reviewFields.innerHTML = "";
-  alert("Análisis guardado. El PDF original no se ha conservado.");
+  alert(
+    changes.length > 0
+      ? `Análisis guardado y ${changes.length} cambios incorporados a la ficha.`
+      : "Análisis guardado sin modificar la ficha. El PDF original no se ha conservado."
+  );
   await openPatientDetail(patientId);
 }
+
+saveClinicalComparisonButton.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  if (!user || !currentAnalysisSession?.comparison) return;
+  const selectedPaths = [...clinicalComparisonList.querySelectorAll("[data-comparison-path]:checked")]
+    .map((input) => input.dataset.comparisonPath);
+
+  try {
+    saveClinicalComparisonButton.disabled = true;
+    saveClinicalComparisonButton.textContent = "Guardando...";
+    await saveDocumentAnalysisForExistingPatient(user, selectedPaths);
+  } catch (error) {
+    console.error("Error guardando la comparación clínica:", error);
+    if (error.code === "patient/comparison-conflict") {
+      alert("La ficha cambió mientras la comparabas. Se recargará sin sobrescribirla.");
+      await openPatientDetail(currentAnalysisSession.targetPatientId);
+      return;
+    }
+    alert(error.message || "No se ha podido guardar la comparación.");
+  } finally {
+    saveClinicalComparisonButton.disabled = false;
+    saveClinicalComparisonButton.textContent = "Guardar selección";
+  }
+});
 
 saveReviewedPatientButton.addEventListener("click", async () => {
   const user = auth.currentUser;
@@ -1402,17 +1554,7 @@ saveReviewedPatientButton.addEventListener("click", async () => {
   }
 
   if (currentAnalysisSession.targetPatientId) {
-    try {
-      saveReviewedPatientButton.disabled = true;
-      saveReviewedPatientButton.textContent = "Guardando análisis...";
-      await saveDocumentAnalysisForExistingPatient(user);
-    } catch (error) {
-      console.error("Error guardando el análisis documental:", error);
-      alert(error.message || "No se ha podido guardar el análisis.");
-    } finally {
-      saveReviewedPatientButton.disabled = false;
-      saveReviewedPatientButton.textContent = "Guardar análisis";
-    }
+    showClinicalComparison(user);
     return;
   }
 

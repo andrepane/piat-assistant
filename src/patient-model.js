@@ -233,3 +233,115 @@ export function applyClinicalRecordEdits(originalRecord, edits) {
 
   return { updatedRecord, changes };
 }
+
+function isExtractedClinicalField(value) {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.prototype.hasOwnProperty.call(value, "valor")
+  );
+}
+
+function hasMeaningfulClinicalValue(value) {
+  if (value === null || value === undefined || value === "") return false;
+  if (Array.isArray(value)) return value.length > 0;
+  if (typeof value === "object") return Object.keys(value).length > 0;
+  return true;
+}
+
+function getClinicalValue(value) {
+  return isExtractedClinicalField(value) ? value.valor : value;
+}
+
+export function buildClinicalComparison(currentRecord = {}, newRecord = {}) {
+  const comparisons = [];
+
+  function visit(currentValue, newValue, path) {
+    if (isExtractedClinicalField(newValue)) {
+      const currentClinicalValue = getClinicalValue(currentValue);
+      if (
+        hasMeaningfulClinicalValue(newValue.valor) &&
+        !valuesAreEqual(currentClinicalValue, newValue.valor)
+      ) {
+        comparisons.push({
+          path,
+          currentValue: currentClinicalValue ?? null,
+          newValue: newValue.valor,
+          newNode: structuredClone(newValue)
+        });
+      }
+      return;
+    }
+
+    if (Array.isArray(newValue) || typeof newValue !== "object" || newValue === null) {
+      const currentClinicalValue = getClinicalValue(currentValue);
+      if (
+        hasMeaningfulClinicalValue(newValue) &&
+        !valuesAreEqual(currentClinicalValue, newValue)
+      ) {
+        comparisons.push({
+          path,
+          currentValue: currentClinicalValue ?? null,
+          newValue,
+          newNode: structuredClone(newValue)
+        });
+      }
+      return;
+    }
+
+    orderedEntries(newValue).forEach(([key, child]) => {
+      visit(currentValue?.[key], child, [...path, key]);
+    });
+  }
+
+  CLINICAL_SECTION_ORDER.forEach((section) => {
+    if (Object.prototype.hasOwnProperty.call(newRecord, section)) {
+      visit(currentRecord?.[section], newRecord[section], [section]);
+    }
+  });
+  orderedEntries(newRecord)
+    .filter(([section]) => !CLINICAL_SECTION_ORDER.includes(section))
+    .forEach(([section, value]) => visit(currentRecord?.[section], value, [section]));
+
+  return comparisons;
+}
+
+function setClinicalPath(target, path, value) {
+  let current = target;
+  path.slice(0, -1).forEach((segment) => {
+    if (!current[segment] || typeof current[segment] !== "object") current[segment] = {};
+    current = current[segment];
+  });
+  current[path.at(-1)] = value;
+}
+
+export function applyClinicalComparison(
+  currentRecord,
+  comparisons,
+  selectedPaths,
+  { analysisId, incorporatedAt }
+) {
+  const updatedRecord = structuredClone(currentRecord || {});
+  const selected = new Set(selectedPaths);
+  const changes = [];
+
+  comparisons.forEach((comparison) => {
+    const route = comparison.path.join(".");
+    if (!selected.has(route)) return;
+    const nextNode = structuredClone(comparison.newNode);
+    if (isExtractedClinicalField(nextNode)) {
+      nextNode.incorporadoEnFicha = true;
+      nextNode.incorporadoDesdeAnalisisId = analysisId;
+      nextNode.incorporadoAt = incorporatedAt;
+    }
+    setClinicalPath(updatedRecord, comparison.path, nextNode);
+    changes.push({
+      ruta: route,
+      valorAnterior: comparison.currentValue,
+      valorNuevo: comparison.newValue
+    });
+  });
+
+  return { updatedRecord, changes };
+}

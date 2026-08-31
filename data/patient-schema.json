@@ -10,6 +10,7 @@
     "estadoClinico": "activo|alta|archivado",
     "ficha": "clinicalRecord",
     "ultimoAnalisisId": "string",
+    "ultimaIncorporacionId": "string|null",
     "fechaCreacion": "timestamp",
     "ultimaActualizacion": "timestamp"
   },
@@ -53,6 +54,10 @@
       }
     },
     "revisionHumana": "reviewMetadata",
+    "comparacionFicha": {
+      "camposPropuestos": "string[]",
+      "camposIncorporados": "string[]"
+    },
     "camposModificados": "string[]",
     "fechaCreacion": "timestamp"
   },
@@ -75,7 +80,8 @@
     "path": "patients/{patientId}/revisions/{revisionId}",
     "userId": "firebase-uid",
     "patientId": "string",
-    "tipoEvento": "revision_manual",
+    "tipoEvento": "revision_manual|incorporacion_documento",
+    "analysisId": "string|null",
     "camposModificados": "string[]",
     "cambios": "change[]",
     "fechaCreacion": "timestamp"
