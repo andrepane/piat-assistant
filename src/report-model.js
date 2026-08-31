@@ -43,7 +43,9 @@ const OMITTED_KEYS = new Set([
   "fecha_nacimiento",
   "centro",
   "centro_salud",
-  "profesional_referencia"
+  "profesional_referencia",
+  "profesional",
+  "profesionales"
 ]);
 
 function isExtractedField(value) {
