@@ -11,6 +11,7 @@ import {
   getPatientName,
   getPatientStatus,
   hasPdfSignature,
+  linkDocumentsWithAnalyses,
   normalizeMedicalRecordNumber,
   normalizeText,
   orderedEntries,
@@ -154,4 +155,22 @@ test("ordena el historial del más reciente al más antiguo", () => {
   ];
 
   assert.deepEqual(sortByNewest(items, (item) => item.date).map((item) => item.id), ["new", "old"]);
+});
+
+test("relaciona cada documento con su análisis y admite registros antiguos", () => {
+  const analyses = [
+    { id: "analysis-1", documentId: "document-1" },
+    { id: "analysis-legacy", documentId: "document-legacy" }
+  ];
+  const documents = [
+    { id: "document-1", analysisId: "analysis-1" },
+    { id: "document-legacy" },
+    { id: "document-without-analysis" }
+  ];
+
+  const linked = linkDocumentsWithAnalyses(documents, analyses);
+
+  assert.equal(linked[0].analysis.id, "analysis-1");
+  assert.equal(linked[1].analysis.id, "analysis-legacy");
+  assert.equal(linked[2].analysis, null);
 });
