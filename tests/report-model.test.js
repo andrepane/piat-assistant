@@ -15,7 +15,8 @@ test("minimiza la ficha y excluye identificadores directos y evidencia", () => {
       edad: { valor: "6 años", confianza: "alta", evidencia: "Edad" },
       nombre: { valor: "Paciente" }
     },
-    escolarizacion: { centro: { valor: "Colegio identificable" }, curso: { valor: "Infantil" } }
+    escolarizacion: { centro: { valor: "Colegio identificable" }, curso: { valor: "Infantil" } },
+    apoyo_profesional: { profesionales: ["Nombre identificable"], intervenciones_externas: ["Logopedia"] }
   });
 
   assert.equal(result.identificacion.fecha_nacimiento, undefined);
@@ -23,6 +24,7 @@ test("minimiza la ficha y excluye identificadores directos y evidencia", () => {
   assert.equal(result.identificacion.edad, "6 años");
   assert.equal(result.escolarizacion.centro, undefined);
   assert.equal(result.escolarizacion.curso, "Infantil");
+  assert.equal(result.apoyo_profesional.profesionales, undefined);
   assert.equal(JSON.stringify(result).includes("evidencia"), false);
 });
 
