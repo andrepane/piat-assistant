@@ -49,6 +49,12 @@ import {
   extractDocxTextLocally,
   validateAnonymizedText
 } from "./src/docx-anonymizer.js";
+import {
+  buildPiatRevisionContext,
+  PIAT_REVISION_SECTIONS,
+  REPORT_STATUS,
+  REPORT_TYPE
+} from "./src/report-model.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
@@ -116,6 +122,7 @@ const patientDetailView = document.getElementById("patientDetailView");
 const newPatientView = document.getElementById("newPatientView");
 const reviewPatientView = document.getElementById("reviewPatientView");
 const comparisonPatientView = document.getElementById("comparisonPatientView");
+const reportEditorView = document.getElementById("reportEditorView");
 const reviewFields = document.getElementById("reviewFields");
 const backToNewPatientButton = document.getElementById("backToNewPatientButton");
 const saveReviewedPatientButton = document.getElementById("saveReviewedPatientButton");
@@ -153,6 +160,16 @@ const cancelDocumentUploadButton = document.getElementById("cancelDocumentUpload
 const uploadPatientDocumentButton = document.getElementById("uploadPatientDocumentButton");
 const patientDocumentUploadStatus = document.getElementById("patientDocumentUploadStatus");
 const patientDocumentsList = document.getElementById("patientDocumentsList");
+const generatePiatRevisionButton = document.getElementById("generatePiatRevisionButton");
+const patientReportsStatus = document.getElementById("patientReportsStatus");
+const patientReportsList = document.getElementById("patientReportsList");
+const backToPatientFromReportButton = document.getElementById("backToPatientFromReportButton");
+const reportEditorTitle = document.getElementById("reportEditorTitle");
+const reportEditorSubtitle = document.getElementById("reportEditorSubtitle");
+const reportEditorSections = document.getElementById("reportEditorSections");
+const cancelReportChangesButton = document.getElementById("cancelReportChangesButton");
+const saveReportDraftButton = document.getElementById("saveReportDraftButton");
+const reportEditorStatus = document.getElementById("reportEditorStatus");
 const privacyReviewDialog = document.getElementById("privacyReviewDialog");
 const privacyFileName = document.getElementById("privacyFileName");
 const privacyConfirmationCheckbox = document.getElementById("privacyConfirmationCheckbox");
@@ -177,6 +194,7 @@ let currentPrivacyScan = null;
 let resolveWordAnonymization = null;
 let currentWordReplacements = [];
 let currentWordKnownIdentifiers = {};
+let currentReportSession = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -202,6 +220,7 @@ function setVisibleView(view) {
   newPatientView.hidden = view !== newPatientView;
   reviewPatientView.hidden = view !== reviewPatientView;
   comparisonPatientView.hidden = view !== comparisonPatientView;
+  reportEditorView.hidden = view !== reportEditorView;
 }
 
 async function showPatientsView() {
@@ -790,6 +809,81 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = [], docume
   });
 }
 
+function timestampToIso(value) {
+  if (!value) return null;
+  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+function renderReportEditor(reportId, reportData) {
+  currentReportSession = {
+    id: reportId,
+    patientId: reportData.patientId,
+    version: reportData.version || 1,
+    data: structuredClone(reportData)
+  };
+  reportEditorTitle.textContent = reportData.titulo || "PIAT de revisión";
+  reportEditorSubtitle.textContent = `${getPatientName(currentPatientData || {})} · ${
+    reportData.estado === REPORT_STATUS.DRAFT ? "Borrador" : humanizeKey(reportData.estado)
+  } · versión ${reportData.version || 1}`;
+  reportEditorSections.innerHTML = "";
+
+  const sectionsById = new Map((reportData.secciones || []).map((section) => [section.id, section]));
+  PIAT_REVISION_SECTIONS.forEach(([id, defaultTitle]) => {
+    const sectionData = sectionsById.get(id) || { id, titulo: defaultTitle, contenido: "" };
+    const wrapper = document.createElement("section");
+    wrapper.className = "report-edit-section";
+    const label = document.createElement("label");
+    const textarea = document.createElement("textarea");
+    textarea.id = `report-section-${id}`;
+    textarea.dataset.reportSectionId = id;
+    textarea.dataset.reportSectionTitle = sectionData.titulo || defaultTitle;
+    textarea.value = sectionData.contenido || "";
+    textarea.rows = Math.max(5, Math.min(12, Math.ceil(textarea.value.length / 110)));
+    label.htmlFor = textarea.id;
+    label.textContent = sectionData.titulo || defaultTitle;
+    wrapper.append(label, textarea);
+    reportEditorSections.appendChild(wrapper);
+  });
+  reportEditorStatus.textContent = "";
+  setVisibleView(reportEditorView);
+}
+
+function renderPatientReports(reportSnapshots) {
+  patientReportsList.innerHTML = "";
+  patientReportsStatus.textContent = "";
+  if (reportSnapshots.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-detail-message";
+    empty.textContent = "Todavía no hay informes generados para este paciente.";
+    patientReportsList.appendChild(empty);
+    return;
+  }
+
+  const reports = sortByNewest(
+    reportSnapshots.map((snapshot) => ({ id: snapshot.id, ...snapshot.data() })),
+    (report) => report.ultimaActualizacion || report.fechaCreacion
+  );
+  reports.forEach((report) => {
+    const card = document.createElement("article");
+    card.className = "patient-report-card";
+    const content = document.createElement("div");
+    const title = document.createElement("h4");
+    title.textContent = report.titulo || "PIAT de revisión";
+    const meta = document.createElement("p");
+    meta.textContent = `${humanizeKey(report.estado || REPORT_STATUS.DRAFT)} · versión ${
+      report.version || 1
+    } · actualizado ${formatTimestamp(report.ultimaActualizacion || report.fechaCreacion)}`;
+    const openButton = document.createElement("button");
+    openButton.type = "button";
+    openButton.textContent = "Abrir borrador";
+    openButton.addEventListener("click", () => renderReportEditor(report.id, report));
+    content.append(title, meta);
+    card.append(content, openButton);
+    patientReportsList.appendChild(card);
+  });
+}
+
 async function openPatientDetail(patientId) {
   const user = auth.currentUser;
   if (!user) return;
@@ -809,6 +903,12 @@ async function openPatientDetail(patientId) {
       getDocs(collection(patientRef, "documents")),
       getDocs(collection(patientRef, "revisions"))
     ]);
+    let reportsSnapshot = null;
+    try {
+      reportsSnapshot = await getDocs(collection(patientRef, "reports"));
+    } catch (reportError) {
+      console.warn("No se han podido cargar los informes:", reportError.message);
+    }
 
     if (currentPatientId !== patientId) return;
     if (!patientSnapshot.exists()) {
@@ -829,6 +929,11 @@ async function openPatientDetail(patientId) {
       revisionsSnapshot.docs,
       documentsSnapshot.docs
     );
+    renderPatientReports(reportsSnapshot?.docs || []);
+    if (!reportsSnapshot) {
+      patientReportsStatus.textContent =
+        "Los informes no están disponibles. Comprueba que las reglas de Firestore estén actualizadas.";
+    }
     resetDocumentUploadForm();
     setPatientRecordEditing(false);
     patientDetailStatus.hidden = true;
@@ -1338,6 +1443,172 @@ backToPatientsButton.addEventListener("click", async () => {
   currentPatientData = null;
   resetDocumentUploadForm();
   await showPatientsView();
+});
+
+backToPatientFromReportButton.addEventListener("click", async () => {
+  const patientId = currentReportSession?.patientId || currentPatientId;
+  currentReportSession = null;
+  if (patientId) await openPatientDetail(patientId);
+});
+
+cancelReportChangesButton.addEventListener("click", () => {
+  if (!currentReportSession) return;
+  renderReportEditor(currentReportSession.id, currentReportSession.data);
+});
+
+generatePiatRevisionButton.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  const patientId = currentPatientId;
+  const clinicalRecord = getPatientClinicalRecord(currentPatientData || {});
+  if (!user || !patientId) return;
+  if (!clinicalRecord) {
+    patientReportsStatus.textContent = "El paciente necesita una ficha clínica antes de generar un informe.";
+    return;
+  }
+
+  try {
+    generatePiatRevisionButton.disabled = true;
+    generatePiatRevisionButton.textContent = "Generando...";
+    patientReportsStatus.textContent = "Preparando el contexto clínico anonimizado...";
+    const patientRef = doc(db, "patients", patientId);
+    const [documentsSnapshot, revisionsSnapshot] = await Promise.all([
+      getDocs(collection(patientRef, "documents")),
+      getDocs(collection(patientRef, "revisions"))
+    ]);
+    const context = buildPiatRevisionContext({
+      clinicalRecord,
+      documents: documentsSnapshot.docs.map((snapshot) => ({
+        ...snapshot.data(),
+        fechaAnalisis: timestampToIso(snapshot.data().fechaCreacion)
+      })),
+      revisions: revisionsSnapshot.docs.map((snapshot) => ({
+        ...snapshot.data(),
+        fecha: timestampToIso(snapshot.data().fechaCreacion)
+      }))
+    });
+    patientReportsStatus.textContent = "Gemini está redactando el borrador...";
+    const idToken = await user.getIdToken();
+    const response = await fetch("/api/generate-report", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${idToken}`
+      },
+      body: JSON.stringify({ type: REPORT_TYPE.PIAT_REVISION, context })
+    });
+    const responseText = await response.text();
+    let generatedReport;
+    try {
+      generatedReport = JSON.parse(responseText);
+    } catch {
+      throw new Error("El servidor devolvió una respuesta de informe no válida.");
+    }
+    if (!response.ok) throw new Error(generatedReport.error || "No se ha podido generar el informe.");
+
+    const reportRef = doc(collection(patientRef, "reports"));
+    const reportData = {
+      schemaVersion: SCHEMA_VERSION,
+      userId: user.uid,
+      patientId,
+      tipo: REPORT_TYPE.PIAT_REVISION,
+      estado: REPORT_STATUS.DRAFT,
+      titulo: generatedReport.titulo,
+      secciones: generatedReport.secciones,
+      version: 1,
+      fuente: {
+        fichaActualizadaAt: timestampToIso(currentPatientData.ultimaActualizacion),
+        documentIds: documentsSnapshot.docs.map((snapshot) => snapshot.id),
+        revisionIds: revisionsSnapshot.docs.map((snapshot) => snapshot.id)
+      },
+      privacidad: {
+        identificadoresDirectosEnviados: false,
+        contextoMinimizado: true
+      },
+      generadoPor: "gemini",
+      fechaGeneracionCliente: new Date().toISOString(),
+      fechaCreacion: serverTimestamp(),
+      ultimaActualizacion: serverTimestamp()
+    };
+    await runTransaction(db, async (transaction) => {
+      const patientSnapshot = await transaction.get(patientRef);
+      if (!patientSnapshot.exists() || patientSnapshot.data().userId !== user.uid) {
+        throw new Error("El paciente ya no está disponible.");
+      }
+      transaction.set(reportRef, reportData);
+      transaction.update(patientRef, {
+        ultimoInformeId: reportRef.id,
+        ultimaActualizacion: serverTimestamp()
+      });
+    });
+    renderReportEditor(reportRef.id, {
+      ...reportData,
+      fechaCreacion: new Date().toISOString(),
+      ultimaActualizacion: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("Error generando PIAT de revisión:", error);
+    patientReportsStatus.textContent = error.message || "No se ha podido generar el informe.";
+  } finally {
+    generatePiatRevisionButton.disabled = false;
+    generatePiatRevisionButton.textContent = "+ Generar PIAT de revisión";
+  }
+});
+
+saveReportDraftButton.addEventListener("click", async () => {
+  const user = auth.currentUser;
+  const session = currentReportSession;
+  if (!user || !session) return;
+  const sections = [...reportEditorSections.querySelectorAll("[data-report-section-id]")].map(
+    (textarea) => ({
+      id: textarea.dataset.reportSectionId,
+      titulo: textarea.dataset.reportSectionTitle,
+      contenido: textarea.value.trim()
+    })
+  );
+  if (sections.every((section) => !section.contenido)) {
+    reportEditorStatus.textContent = "El informe no puede quedar completamente vacío.";
+    return;
+  }
+
+  try {
+    saveReportDraftButton.disabled = true;
+    saveReportDraftButton.textContent = "Guardando...";
+    reportEditorStatus.textContent = "";
+    const reportRef = doc(db, "patients", session.patientId, "reports", session.id);
+    const nextVersion = session.version + 1;
+    await runTransaction(db, async (transaction) => {
+      const reportSnapshot = await transaction.get(reportRef);
+      if (!reportSnapshot.exists() || reportSnapshot.data().userId !== user.uid) {
+        throw new Error("El borrador ya no está disponible.");
+      }
+      if ((reportSnapshot.data().version || 1) !== session.version) {
+        const conflict = new Error("El borrador cambió mientras lo editabas.");
+        conflict.code = "report/edit-conflict";
+        throw conflict;
+      }
+      transaction.update(reportRef, {
+        secciones: sections,
+        version: nextVersion,
+        ultimaRevisionPor: user.uid,
+        ultimaActualizacion: serverTimestamp()
+      });
+    });
+    currentReportSession = {
+      ...session,
+      version: nextVersion,
+      data: { ...session.data, secciones: sections, version: nextVersion }
+    };
+    reportEditorSubtitle.textContent = `${getPatientName(currentPatientData || {})} · Borrador · versión ${nextVersion}`;
+    reportEditorStatus.textContent = "Borrador guardado correctamente.";
+  } catch (error) {
+    console.error("Error guardando el borrador:", error);
+    reportEditorStatus.textContent = error.code === "report/edit-conflict"
+      ? "El borrador cambió en otra sesión. Vuelve a la ficha y ábrelo de nuevo."
+      : error.message || "No se ha podido guardar el borrador.";
+  } finally {
+    saveReportDraftButton.disabled = false;
+    saveReportDraftButton.textContent = "Guardar borrador";
+  }
 });
 
 showDocumentUploadButton.addEventListener("click", () => {
