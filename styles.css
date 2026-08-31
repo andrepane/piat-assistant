@@ -567,6 +567,84 @@ button:disabled {
   font-weight: 600;
 }
 
+.comparison-card {
+  padding: 20px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.comparison-card:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.comparison-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.comparison-heading h3 {
+  margin: 0;
+  font-size: 17px;
+}
+
+.comparison-heading span {
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.comparison-values {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.comparison-values > div {
+  padding: 14px;
+  border: 1px solid #dbe2e8;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.comparison-values > div:last-child {
+  border-color: #93c5bd;
+  background: #f0fdfa;
+}
+
+.comparison-values p {
+  margin: 7px 0 0;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.comparison-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  font-weight: 600;
+}
+
+.comparison-choice input {
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+}
+
+@media (max-width: 640px) {
+  .comparison-heading {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .comparison-values {
+    grid-template-columns: 1fr;
+  }
+}
+
 .privacy-confirmation {
   display: flex;
   align-items: flex-start;

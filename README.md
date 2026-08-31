@@ -29,6 +29,12 @@ bloquean el envío. Si el PDF es un escaneo o no contiene texto extraíble, la a
 exige igualmente la comprobación visual. El archivo no se envía a PDF.js ni a otro servidor durante
 esta inspección: el análisis del texto ocurre en el navegador.
 
+Cuando se analiza documentación de un paciente existente, la extracción revisada se compara con la
+ficha consolidada. La aplicación omite valores vacíos y datos idénticos, conserva por defecto la
+información actual y permite incorporar únicamente los cambios seleccionados. El análisis registra
+los campos propuestos e incorporados y cada actualización de la ficha genera un evento longitudinal
+en `revisions`.
+
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
 - Estados de documento previstos: `subido`, `procesando`, `analizado`, `error`, `archivado`.

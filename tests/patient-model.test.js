@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 
 import {
   applyClinicalRecordEdits,
+  applyClinicalComparison,
+  buildClinicalComparison,
   CLINICAL_SECTION_ORDER,
   createPatientDocumentId,
   getPatientClinicalRecord,
@@ -15,6 +17,43 @@ import {
   sortByNewest,
   valuesAreEqual
 } from "../src/patient-model.js";
+
+test("propone solo datos nuevos útiles que difieren de la ficha", () => {
+  const comparisons = buildClinicalComparison(
+    { identificacion: { edad: { valor: "32 meses" }, sexo: { valor: "Varón" } } },
+    {
+      identificacion: {
+        edad: { valor: "33 meses", confianza: "alta" },
+        sexo: { valor: "Varón", confianza: "alta" },
+        fecha_nacimiento: { valor: null, confianza: "baja" }
+      }
+    }
+  );
+  assert.equal(comparisons.length, 1);
+  assert.deepEqual(comparisons[0].path, ["identificacion", "edad"]);
+  assert.equal(comparisons[0].currentValue, "32 meses");
+  assert.equal(comparisons[0].newValue, "33 meses");
+});
+
+test("incorpora únicamente los cambios seleccionados y conserva trazabilidad", () => {
+  const current = { identificacion: { edad: { valor: "32 meses" } } };
+  const comparisons = buildClinicalComparison(current, {
+    identificacion: {
+      edad: { valor: "33 meses", confianza: "alta" },
+      sexo: { valor: "Varón", confianza: "alta" }
+    }
+  });
+  const result = applyClinicalComparison(
+    current,
+    comparisons,
+    ["identificacion.edad"],
+    { analysisId: "analysis-1", incorporatedAt: "2026-08-31T10:00:00.000Z" }
+  );
+  assert.equal(result.updatedRecord.identificacion.edad.valor, "33 meses");
+  assert.equal(result.updatedRecord.identificacion.edad.incorporadoDesdeAnalisisId, "analysis-1");
+  assert.equal(result.updatedRecord.identificacion.sexo, undefined);
+  assert.equal(result.changes.length, 1);
+});
 
 test("comprueba la firma real de un PDF", () => {
   assert.equal(hasPdfSignature(new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d])), true);
