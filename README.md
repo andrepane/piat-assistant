@@ -23,6 +23,12 @@ peticiones que no incluyan esa confirmación y el análisis conserva la fecha y 
 revisión realizada. Esta barrera no anonimiza automáticamente el PDF ni sustituye su comprobación
 manual.
 
+Como ayuda adicional, el navegador extrae el texto mediante PDF.js y busca localmente el nombre y
+NH conocidos, además de correos, DNI/NIE, teléfonos y etiquetas sensibles. Las coincidencias claras
+bloquean el envío. Si el PDF es un escaneo o no contiene texto extraíble, la aplicación lo advierte y
+exige igualmente la comprobación visual. El archivo no se envía a PDF.js ni a otro servidor durante
+esta inspección: el análisis del texto ocurre en el navegador.
+
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
 - Estados de documento previstos: `subido`, `procesando`, `analizado`, `error`, `archivado`.

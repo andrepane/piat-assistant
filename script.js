@@ -40,6 +40,7 @@ import {
   applyClinicalRecordEdits,
   orderedEntries
 } from "./src/patient-model.js";
+import { inspectPdfPrivacy } from "./src/privacy-scanner.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
@@ -143,11 +144,15 @@ const privacyFileName = document.getElementById("privacyFileName");
 const privacyConfirmationCheckbox = document.getElementById("privacyConfirmationCheckbox");
 const cancelPrivacyReviewButton = document.getElementById("cancelPrivacyReviewButton");
 const confirmPrivacyReviewButton = document.getElementById("confirmPrivacyReviewButton");
+const privacyScanResult = document.getElementById("privacyScanResult");
+const privacyScanStatus = document.getElementById("privacyScanStatus");
+const privacyScanFindings = document.getElementById("privacyScanFindings");
 
 let currentAnalysisSession = null;
 let currentPatientId = null;
 let currentPatientData = null;
 let resolvePrivacyReview = null;
+let currentPrivacyScan = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -876,16 +881,74 @@ async function hashFile(file) {
     .join("");
 }
 
-function requestPrivacyConfirmation(file) {
+function unwrapExtractedValue(value) {
+  return isExtractedField(value) ? value.valor : value;
+}
+
+function getKnownPrivacyIdentifiers(patient = null) {
+  const clinicalRecord = patient ? getPatientClinicalRecord(patient) : null;
+  return {
+    name: patient ? getPatientName(patient) : patientName.value.trim(),
+    nh: patient ? getPatientNH(patient) : patientNH.value.trim(),
+    birthDate: unwrapExtractedValue(clinicalRecord?.identificacion?.fecha_nacimiento) || ""
+  };
+}
+
+function renderPrivacyScan(scan) {
+  currentPrivacyScan = scan;
+  privacyScanResult.className = `privacy-scan-result privacy-scan-${scan.status}`;
+  privacyScanFindings.innerHTML = "";
+  const blockingFindings = scan.findings.filter((finding) => finding.blocking);
+
+  if (blockingFindings.length > 0) {
+    privacyScanResult.classList.add("privacy-scan-blocked");
+    privacyScanStatus.textContent =
+      "Envío bloqueado: se han encontrado identificadores claros. Prepara otra copia anonimizada.";
+  } else if (scan.status === "unreadable") {
+    privacyScanStatus.textContent =
+      "No se ha podido leer suficiente texto. Puede ser un PDF escaneado: revisa también sus imágenes.";
+  } else if (scan.status === "error") {
+    privacyScanStatus.textContent =
+      "La inspección local no ha podido completarse. La revisión manual sigue siendo obligatoria.";
+  } else if (scan.findings.length > 0) {
+    privacyScanStatus.textContent =
+      "No hay coincidencias claras, pero se han encontrado elementos que debes comprobar.";
+  } else {
+    privacyScanStatus.textContent =
+      "La inspección local no ha encontrado identificadores evidentes. Esto no garantiza el anonimato.";
+  }
+
+  scan.findings.forEach((finding) => {
+    const item = document.createElement("li");
+    item.textContent = finding.blocking
+      ? finding.label
+      : `${finding.label}: comprueba que el contenido asociado esté anonimizado.`;
+    privacyScanFindings.appendChild(item);
+  });
+
+  privacyConfirmationCheckbox.disabled = blockingFindings.length > 0;
+  confirmPrivacyReviewButton.disabled = true;
+}
+
+function requestPrivacyConfirmation(file, knownIdentifiers) {
   if (resolvePrivacyReview) resolvePrivacyReview(null);
   privacyFileName.textContent = `Archivo que se enviará: ${file.name}`;
   privacyConfirmationCheckbox.checked = false;
+  privacyConfirmationCheckbox.disabled = true;
   confirmPrivacyReviewButton.disabled = true;
+  currentPrivacyScan = null;
+  privacyScanResult.className = "privacy-scan-result privacy-scan-loading";
+  privacyScanStatus.textContent = "Inspeccionando el texto del PDF localmente...";
+  privacyScanFindings.innerHTML = "";
   privacyReviewDialog.showModal();
 
-  return new Promise((resolve) => {
+  const confirmation = new Promise((resolve) => {
     resolvePrivacyReview = resolve;
   });
+  inspectPdfPrivacy(file, knownIdentifiers).then((scan) => {
+    if (resolvePrivacyReview) renderPrivacyScan(scan);
+  });
+  return confirmation;
 }
 
 function closePrivacyReview(confirmation = null) {
@@ -896,7 +959,8 @@ function closePrivacyReview(confirmation = null) {
 }
 
 privacyConfirmationCheckbox.addEventListener("change", () => {
-  confirmPrivacyReviewButton.disabled = !privacyConfirmationCheckbox.checked;
+  const blocked = currentPrivacyScan?.findings.some((finding) => finding.blocking);
+  confirmPrivacyReviewButton.disabled = !privacyConfirmationCheckbox.checked || blocked;
 });
 
 cancelPrivacyReviewButton.addEventListener("click", () => closePrivacyReview());
@@ -906,7 +970,11 @@ confirmPrivacyReviewButton.addEventListener("click", () => {
   closePrivacyReview({
     confirmed: true,
     confirmedAt: new Date().toISOString(),
-    checklistVersion: 1
+    checklistVersion: 1,
+    localScan: {
+      status: currentPrivacyScan?.status || "unknown",
+      findingTypes: currentPrivacyScan?.findings.map((finding) => finding.type) || []
+    }
   });
 });
 
@@ -1060,7 +1128,10 @@ patientDocumentUploadForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  const privacyReview = await requestPrivacyConfirmation(file);
+  const privacyReview = await requestPrivacyConfirmation(
+    file,
+    getKnownPrivacyIdentifiers(currentPatientData)
+  );
   if (!privacyReview) {
     patientDocumentUploadStatus.textContent = "Envío cancelado. El PDF no ha salido del dispositivo.";
     return;
@@ -1231,7 +1302,7 @@ analyzePatientButton.addEventListener("click", async () => {
     return;
   }
 
-  const privacyReview = await requestPrivacyConfirmation(file);
+  const privacyReview = await requestPrivacyConfirmation(file, getKnownPrivacyIdentifiers());
   if (!privacyReview) return;
 
   try {

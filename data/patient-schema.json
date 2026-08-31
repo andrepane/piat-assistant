@@ -46,7 +46,11 @@
     "revisionPrivacidad": {
       "confirmed": true,
       "confirmedAt": "ISO-8601",
-      "checklistVersion": 1
+      "checklistVersion": 1,
+      "localScan": {
+        "status": "inspected|unreadable|error|unknown",
+        "findingTypes": "string[]"
+      }
     },
     "revisionHumana": "reviewMetadata",
     "camposModificados": "string[]",
