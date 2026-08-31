@@ -89,6 +89,20 @@
     "cambios": "change[]",
     "fechaCreacion": "timestamp"
   },
+  "report": {
+    "path": "patients/{patientId}/reports/{reportId}",
+    "userId": "firebase-uid",
+    "patientId": "string",
+    "tipo": "piat_revision",
+    "estado": "borrador",
+    "titulo": "string",
+    "secciones": "reportSection[]",
+    "version": "number",
+    "fuente": "reportSourceMetadata",
+    "privacidad": "reportPrivacyMetadata",
+    "fechaCreacion": "timestamp",
+    "ultimaActualizacion": "timestamp"
+  },
   "states": {
     "patient": ["activo", "alta", "archivado"],
     "analysis": ["pendiente", "procesando", "revisado", "error"],
