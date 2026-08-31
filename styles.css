@@ -505,6 +505,71 @@ button:hover {
   margin-top: 16px;
 }
 
+#patientReportsStatus,
+#reportEditorStatus {
+  color: #4b5563;
+}
+
+.patient-report-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.patient-report-card:first-child {
+  padding-top: 4px;
+  border-top: 0;
+}
+
+.patient-report-card h4,
+.patient-report-card p {
+  margin: 0;
+}
+
+.patient-report-card p {
+  margin-top: 6px;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.report-privacy-notice {
+  color: #374151;
+  background: #f0f7ff;
+  border-color: #bfdbfe;
+}
+
+.report-edit-section {
+  padding: 18px 0;
+  border-top: 1px solid #e5e7eb;
+}
+
+.report-edit-section:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.report-edit-section label {
+  display: block;
+  margin-bottom: 8px;
+  color: #173b58;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.report-edit-section textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 @media (max-width: 640px) {
   .page-heading,
   .section-heading,
@@ -525,6 +590,11 @@ button:hover {
 
   .document-contribution-grid {
     grid-template-columns: 1fr;
+  }
+
+  .patient-report-card {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .clinical-field-meta {

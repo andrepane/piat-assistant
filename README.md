@@ -41,6 +41,13 @@ información actual y permite incorporar únicamente los cambios seleccionados. 
 los campos propuestos e incorporados y cada actualización de la ficha genera un evento longitudinal
 en `revisions`.
 
+Desde la ficha del paciente se puede generar un primer borrador de PIAT de revisión. El navegador
+construye un contexto clínico minimizado a partir de la ficha consolidada, los documentos y las
+revisiones. No incluye el nombre, NH, fecha de nacimiento exacta, centros ni evidencias de extracción.
+Gemini devuelve un conjunto fijo de secciones editables y el borrador se guarda en `reports` con
+control de versión. El resultado siempre requiere revisión profesional y todavía no se exporta a
+Word o PDF.
+
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
 - Estados de documento previstos: `subido`, `procesando`, `analizado`, `error`, `archivado`.
