@@ -43,6 +43,11 @@ import {
   orderedEntries
 } from "./src/patient-model.js";
 import { inspectPdfPrivacy } from "./src/privacy-scanner.js";
+import {
+  anonymizeClinicalText,
+  extractDocxTextLocally,
+  validateAnonymizedText
+} from "./src/docx-anonymizer.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDieG_k97issVAituvN_AVWM3D8Hgq76aM",
@@ -53,6 +58,8 @@ const firebaseConfig = {
 };
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const PDF_MIME_TYPE = "application/pdf";
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const SECTION_LABELS = {
   identificacion: "Identificación",
@@ -153,12 +160,22 @@ const confirmPrivacyReviewButton = document.getElementById("confirmPrivacyReview
 const privacyScanResult = document.getElementById("privacyScanResult");
 const privacyScanStatus = document.getElementById("privacyScanStatus");
 const privacyScanFindings = document.getElementById("privacyScanFindings");
+const wordAnonymizationDialog = document.getElementById("wordAnonymizationDialog");
+const wordAnonymizationSummary = document.getElementById("wordAnonymizationSummary");
+const wordAnonymizedText = document.getElementById("wordAnonymizedText");
+const wordAnonymizationStatus = document.getElementById("wordAnonymizationStatus");
+const wordAnonymizationCheckbox = document.getElementById("wordAnonymizationCheckbox");
+const cancelWordAnonymizationButton = document.getElementById("cancelWordAnonymizationButton");
+const confirmWordAnonymizationButton = document.getElementById("confirmWordAnonymizationButton");
 
 let currentAnalysisSession = null;
 let currentPatientId = null;
 let currentPatientData = null;
 let resolvePrivacyReview = null;
 let currentPrivacyScan = null;
+let resolveWordAnonymization = null;
+let currentWordReplacements = [];
+let currentWordKnownIdentifiers = {};
 
 function isExtractedField(value) {
   return Boolean(
@@ -589,7 +606,9 @@ function renderPatientDocuments(documentSnapshots) {
     note.className = "analysis-storage-notice";
     note.textContent = documentData.estado === DOCUMENT_STATUS.ERROR
       ? "El análisis no se completó."
-      : "Se conserva la información extraída; el PDF original no está almacenado.";
+      : documentData.modoEntrada === "anonymized_text"
+        ? "Se envió únicamente texto anonimizado; el Word original no salió del dispositivo."
+        : "Se conserva la información extraída; el PDF original no está almacenado.";
     card.append(heading, details, note);
     patientDocumentsList.appendChild(card);
   });
@@ -665,7 +684,9 @@ function renderAnalysisHistory(analysisDocuments, revisionDocuments = []) {
     storageNotice.textContent = isRecordRevision
       ? `Cambios: ${analysis.camposModificados?.map(humanizeKey).join(", ") || "sin detalle"}.`
       : analysis.documentId
-        ? "Análisis vinculado al registro documental; el PDF original no se conserva."
+        ? analysis.documentoFuente?.inputMode === "anonymized_text"
+          ? "Análisis realizado exclusivamente sobre texto anonimizado."
+          : "Análisis vinculado al registro documental; el PDF original no se conserva."
         : "Análisis antiguo sin registro documental asociado.";
     card.append(heading, details, storageNotice);
     patientAnalysisHistory.appendChild(card);
@@ -888,6 +909,36 @@ async function isRealPdf(file) {
   return hasPdfSignature(header);
 }
 
+function getDocumentKind(file) {
+  const lowerName = file.name.toLowerCase();
+  if (file.type === PDF_MIME_TYPE || lowerName.endsWith(".pdf")) return "pdf";
+  if (file.type === DOCX_MIME_TYPE || lowerName.endsWith(".docx")) return "docx";
+  return null;
+}
+
+async function isRealDocx(file) {
+  const header = new Uint8Array(await file.slice(0, 4).arrayBuffer());
+  return header[0] === 0x50 && header[1] === 0x4b &&
+    ((header[2] === 0x03 && header[3] === 0x04) ||
+      (header[2] === 0x05 && header[3] === 0x06) ||
+      (header[2] === 0x07 && header[3] === 0x08));
+}
+
+async function validateDocumentFile(file) {
+  const kind = getDocumentKind(file);
+  if (!kind) return { error: "Solo se admiten archivos PDF o Word (.docx)." };
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    return { error: "El documento supera el límite de 8 MB." };
+  }
+  if (kind === "pdf" && !(await isRealPdf(file))) {
+    return { error: "El archivo seleccionado no contiene un PDF válido." };
+  }
+  if (kind === "docx" && !(await isRealDocx(file))) {
+    return { error: "El archivo seleccionado no contiene un Word válido." };
+  }
+  return { kind };
+}
+
 async function hashFile(file) {
   const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
   return [...new Uint8Array(digest)]
@@ -985,6 +1036,7 @@ confirmPrivacyReviewButton.addEventListener("click", () => {
     confirmed: true,
     confirmedAt: new Date().toISOString(),
     checklistVersion: 1,
+    method: "pdf_local_scan",
     localScan: {
       status: currentPrivacyScan?.status || "unknown",
       findingTypes: currentPrivacyScan?.findings.map((finding) => finding.type) || []
@@ -997,12 +1049,87 @@ privacyReviewDialog.addEventListener("cancel", (event) => {
   closePrivacyReview();
 });
 
-async function analyzeDocumentFile(file, user, privacyReview) {
-  if (!privacyReview?.confirmed) {
-    throw new Error("Debes confirmar que el PDF está anonimizado antes de enviarlo.");
+function updateWordAnonymizationState() {
+  const text = wordAnonymizedText.value.trim();
+  const findings = validateAnonymizedText(text, currentWordKnownIdentifiers);
+  const canConfirm = text.length > 0 && findings.length === 0;
+  wordAnonymizationCheckbox.disabled = !canConfirm;
+  if (!canConfirm) wordAnonymizationCheckbox.checked = false;
+  confirmWordAnonymizationButton.disabled = !canConfirm || !wordAnonymizationCheckbox.checked;
+  wordAnonymizationStatus.className = findings.length > 0
+    ? "word-anonymization-status word-anonymization-blocked"
+    : "word-anonymization-status";
+  wordAnonymizationStatus.textContent = findings.length > 0
+    ? `Quedan ${findings.length} identificadores claros. Elimínalos antes de continuar.`
+    : "No se han encontrado identificadores evidentes. Revisa igualmente nombres y contexto indirecto.";
+}
+
+function closeWordAnonymization(result = null) {
+  const resolve = resolveWordAnonymization;
+  resolveWordAnonymization = null;
+  wordAnonymizationDialog.close();
+  wordAnonymizedText.value = "";
+  currentWordKnownIdentifiers = {};
+  currentWordReplacements = [];
+  if (resolve) resolve(result);
+}
+
+async function requestWordAnonymization(file, knownIdentifiers) {
+  currentWordKnownIdentifiers = knownIdentifiers;
+  const extractedText = await extractDocxTextLocally(file);
+  const anonymized = anonymizeClinicalText(extractedText, knownIdentifiers);
+  currentWordReplacements = anonymized.replacements;
+  wordAnonymizedText.value = anonymized.text;
+  const replacementCount = anonymized.replacements.reduce((total, item) => total + item.count, 0);
+  wordAnonymizationSummary.textContent = replacementCount > 0
+    ? `Se han realizado ${replacementCount} sustituciones automáticas. Comprueba el resultado.`
+    : "No se han realizado sustituciones automáticas. Revisa el texto completo.";
+  wordAnonymizationCheckbox.checked = false;
+  updateWordAnonymizationState();
+  wordAnonymizationDialog.showModal();
+
+  return new Promise((resolve) => {
+    resolveWordAnonymization = resolve;
+  });
+}
+
+wordAnonymizedText.addEventListener("input", updateWordAnonymizationState);
+wordAnonymizationCheckbox.addEventListener("change", updateWordAnonymizationState);
+cancelWordAnonymizationButton.addEventListener("click", () => closeWordAnonymization());
+confirmWordAnonymizationButton.addEventListener("click", () => {
+  updateWordAnonymizationState();
+  if (confirmWordAnonymizationButton.disabled) return;
+  closeWordAnonymization({
+    documentText: wordAnonymizedText.value.trim(),
+    privacyReview: {
+      confirmed: true,
+      confirmedAt: new Date().toISOString(),
+      checklistVersion: 1,
+      method: "docx_local_text",
+      automaticReplacementTypes: currentWordReplacements.map((item) => item.type)
+    }
+  });
+});
+wordAnonymizationDialog.addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeWordAnonymization();
+});
+
+async function prepareDocumentForAnalysis(file, knownIdentifiers) {
+  if (getDocumentKind(file) === "docx") {
+    return requestWordAnonymization(file, knownIdentifiers);
   }
+  const privacyReview = await requestPrivacyConfirmation(file, knownIdentifiers);
+  return privacyReview ? { privacyReview, documentText: null } : null;
+}
+
+async function analyzeDocumentFile(file, user, privacyReview, documentText = null) {
+  if (!privacyReview?.confirmed) {
+    throw new Error("Debes confirmar que el documento está anonimizado antes de enviarlo.");
+  }
+  const kind = getDocumentKind(file);
   const [fileBase64, idToken, sha256] = await Promise.all([
-    readFileAsBase64(file),
+    kind === "pdf" ? readFileAsBase64(file) : Promise.resolve(null),
     user.getIdToken(),
     hashFile(file)
   ]);
@@ -1014,7 +1141,8 @@ async function analyzeDocumentFile(file, user, privacyReview) {
     },
     body: JSON.stringify({
       fileBase64,
-      mimeType: file.type,
+      documentText,
+      mimeType: kind === "docx" ? DOCX_MIME_TYPE : PDF_MIME_TYPE,
       privacyConfirmed: true
     })
   });
@@ -1033,13 +1161,15 @@ async function analyzeDocumentFile(file, user, privacyReview) {
     extraction,
     sourceDocument: {
       name: file.name,
-      mimeType: file.type,
+      mimeType: kind === "docx" ? DOCX_MIME_TYPE : PDF_MIME_TYPE,
       size: file.size,
       lastModified: file.lastModified || null,
-      sha256
+      sha256,
+      inputMode: kind === "docx" ? "anonymized_text" : "transient_pdf"
     },
     analyzedAt: new Date().toISOString(),
-    privacyReview
+    privacyReview,
+    inputMode: kind === "docx" ? "anonymized_text" : "transient_pdf"
   };
 }
 
@@ -1126,37 +1256,40 @@ patientDocumentUploadForm.addEventListener("submit", async (event) => {
   const file = existingPatientDocument.files?.[0];
   if (!user || !patientId) return;
   if (!file) {
-    patientDocumentUploadStatus.textContent = "Selecciona un archivo PDF.";
+    patientDocumentUploadStatus.textContent = "Selecciona un archivo PDF o Word.";
     return;
   }
-  if (file.type !== "application/pdf") {
-    patientDocumentUploadStatus.textContent = "Solo se admiten archivos PDF.";
-    return;
-  }
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    patientDocumentUploadStatus.textContent = "El PDF supera el límite de 8 MB.";
-    return;
-  }
-  if (!(await isRealPdf(file))) {
-    patientDocumentUploadStatus.textContent = "El archivo seleccionado no contiene un PDF válido.";
-    return;
-  }
-
-  const privacyReview = await requestPrivacyConfirmation(
-    file,
-    getKnownPrivacyIdentifiers(currentPatientData)
-  );
-  if (!privacyReview) {
-    patientDocumentUploadStatus.textContent = "Envío cancelado. El PDF no ha salido del dispositivo.";
+  const validation = await validateDocumentFile(file);
+  if (validation.error) {
+    patientDocumentUploadStatus.textContent = validation.error;
     return;
   }
 
   try {
     uploadPatientDocumentButton.disabled = true;
+    uploadPatientDocumentButton.textContent = "Preparando...";
+    patientDocumentUploadStatus.textContent = validation.kind === "docx"
+      ? "Extrayendo y anonimizando el texto localmente..."
+      : "Comprobando la privacidad del PDF...";
+    const prepared = await prepareDocumentForAnalysis(
+      file,
+      getKnownPrivacyIdentifiers(currentPatientData)
+    );
+    if (!prepared) {
+      patientDocumentUploadStatus.textContent = "Envío cancelado. El documento no ha salido del dispositivo.";
+      return;
+    }
     uploadPatientDocumentButton.textContent = "Analizando...";
-    patientDocumentUploadStatus.textContent = "Analizando el PDF temporalmente...";
+    patientDocumentUploadStatus.textContent = validation.kind === "docx"
+      ? "Analizando únicamente el texto anonimizado..."
+      : "Analizando el PDF temporalmente...";
     currentAnalysisSession = {
-      ...(await analyzeDocumentFile(file, user, privacyReview)),
+      ...(await analyzeDocumentFile(
+        file,
+        user,
+        prepared.privacyReview,
+        prepared.documentText
+      )),
       targetPatientId: patientId,
       documentType: patientDocumentType.value,
       documentDate: patientDocumentDate.value || null
@@ -1300,29 +1433,27 @@ analyzePatientButton.addEventListener("click", async () => {
   const files = Array.from(patientDocuments.files);
   if (!user) return alert("Debes iniciar sesión.");
   if (!name) return alert("Introduce el nombre del paciente.");
-  if (files.length !== 1) return alert("Selecciona un documento PDF.");
+  if (files.length !== 1) return alert("Selecciona un documento PDF o Word.");
 
   const file = files[0];
-  if (file.type !== "application/pdf") {
-    alert("En esta fase solo se pueden analizar documentos PDF.");
+  const validation = await validateDocumentFile(file);
+  if (validation.error) {
+    alert(validation.error);
     return;
   }
-  if (file.size > MAX_FILE_SIZE_BYTES) {
-    alert("El PDF supera el límite de 8 MB.");
-    return;
-  }
-  if (!(await isRealPdf(file))) {
-    alert("El archivo seleccionado no contiene un PDF válido.");
-    return;
-  }
-
-  const privacyReview = await requestPrivacyConfirmation(file, getKnownPrivacyIdentifiers());
-  if (!privacyReview) return;
 
   try {
     analyzePatientButton.disabled = true;
+    analyzePatientButton.textContent = "Preparando...";
+    const prepared = await prepareDocumentForAnalysis(file, getKnownPrivacyIdentifiers());
+    if (!prepared) return;
     analyzePatientButton.textContent = "Analizando...";
-    currentAnalysisSession = await analyzeDocumentFile(file, user, privacyReview);
+    currentAnalysisSession = await analyzeDocumentFile(
+      file,
+      user,
+      prepared.privacyReview,
+      prepared.documentText
+    );
     patientDocuments.value = "";
     selectedDocuments.innerHTML = "";
     renderExtraction(currentAnalysisSession.extraction);
@@ -1442,6 +1573,7 @@ async function saveDocumentAnalysisForExistingPatient(user, selectedPaths) {
     tamano: session.sourceDocument.size,
     sha256: session.sourceDocument.sha256,
     archivoConservado: false,
+    modoEntrada: session.inputMode,
     fechaDocumento: session.documentDate,
     estado: DOCUMENT_STATUS.ANALYZED,
     fechaCreacion: serverTimestamp(),
@@ -1487,7 +1619,7 @@ async function saveDocumentAnalysisForExistingPatient(user, selectedPaths) {
       throw unavailableError;
     }
     if (existingDocument.exists()) {
-      const duplicateError = new Error("Este mismo PDF ya fue analizado para el paciente.");
+      const duplicateError = new Error("Este mismo documento ya fue analizado para el paciente.");
       duplicateError.code = "document/already-exists";
       throw duplicateError;
     }
@@ -1516,7 +1648,7 @@ async function saveDocumentAnalysisForExistingPatient(user, selectedPaths) {
   alert(
     changes.length > 0
       ? `Análisis guardado y ${changes.length} cambios incorporados a la ficha.`
-      : "Análisis guardado sin modificar la ficha. El PDF original no se ha conservado."
+      : "Análisis guardado sin modificar la ficha. El archivo original no se ha conservado."
   );
   await openPatientDetail(patientId);
 }
@@ -1633,6 +1765,7 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       tamano: currentAnalysisSession.sourceDocument.size,
       sha256: currentAnalysisSession.sourceDocument.sha256,
       archivoConservado: false,
+      modoEntrada: currentAnalysisSession.inputMode,
       fechaDocumento: null,
       estado: DOCUMENT_STATUS.ANALYZED,
       fechaCreacion: serverTimestamp(),
@@ -1654,7 +1787,7 @@ saveReviewedPatientButton.addEventListener("click", async () => {
       transaction.set(documentRef, documentData);
     });
 
-    alert("Paciente y análisis guardados. El PDF original no se ha conservado.");
+    alert("Paciente y análisis guardados. El archivo original no se ha conservado.");
     resetPatientForm();
     await showPatientsView();
   } catch (error) {

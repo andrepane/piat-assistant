@@ -1,7 +1,9 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
+const MAX_DOCUMENT_TEXT_LENGTH = 250000;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf"]);
+const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -61,6 +63,13 @@ export function hasPrivacyConfirmation(value) {
   return value === true;
 }
 
+export function getAnalysisInputKind({ fileBase64, documentText } = {}) {
+  const hasPdf = typeof fileBase64 === "string" && fileBase64.length > 0;
+  const hasAnonymizedText = typeof documentText === "string" && documentText.trim().length > 0;
+  if (hasPdf === hasAnonymizedText) return null;
+  return hasPdf ? "pdf" : "anonymized_text";
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -77,7 +86,7 @@ export default async function handler(req, res) {
       });
     }
 
-    const { fileBase64, mimeType, privacyConfirmed } = req.body || {};
+    const { fileBase64, documentText, mimeType, privacyConfirmed } = req.body || {};
 
     if (!hasPrivacyConfirmation(privacyConfirmed)) {
       return res.status(400).json({
@@ -85,34 +94,41 @@ export default async function handler(req, res) {
       });
     }
 
-    if (!fileBase64 || !mimeType) {
+    const inputKind = getAnalysisInputKind({ fileBase64, documentText });
+    const hasPdf = inputKind === "pdf";
+    const hasAnonymizedText = inputKind === "anonymized_text";
+
+    if (!inputKind || !mimeType) {
       return res.status(400).json({
-        error: "Falta el archivo o el tipo MIME"
+        error: "Debes enviar un PDF o texto anonimizado, pero no ambos"
       });
     }
 
-    if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+    if (hasAnonymizedText && mimeType !== DOCX_MIME_TYPE) {
       return res.status(415).json({
         error: "Tipo de documento no admitido"
       });
     }
 
-    if (!isValidBase64(fileBase64)) {
-      return res.status(400).json({
-        error: "El contenido del archivo no es válido"
-      });
-    }
-
-    if (!hasPdfSignature(fileBase64)) {
-      return res.status(400).json({
-        error: "El archivo no contiene un PDF válido"
-      });
-    }
-
-    if (Buffer.byteLength(fileBase64, "base64") > MAX_FILE_SIZE_BYTES) {
+    if (hasAnonymizedText && documentText.length > MAX_DOCUMENT_TEXT_LENGTH) {
       return res.status(413).json({
-        error: "El documento supera el límite de 8 MB"
+        error: "El texto anonimizado es demasiado largo"
       });
+    }
+
+    if (hasPdf) {
+      if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+        return res.status(415).json({ error: "Tipo de documento no admitido" });
+      }
+      if (!isValidBase64(fileBase64)) {
+        return res.status(400).json({ error: "El contenido del archivo no es válido" });
+      }
+      if (!hasPdfSignature(fileBase64)) {
+        return res.status(400).json({ error: "El archivo no contiene un PDF válido" });
+      }
+      if (Buffer.byteLength(fileBase64, "base64") > MAX_FILE_SIZE_BYTES) {
+        return res.status(413).json({ error: "El documento supera el límite de 8 MB" });
+      }
     }
 
     if (!process.env.GEMINI_API_KEY) {
@@ -299,19 +315,17 @@ Usa esta estructura:
           "x-goog-api-key": process.env.GEMINI_API_KEY
         },
         body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: prompt },
-                {
-                  inlineData: {
-                    mimeType,
-                    data: fileBase64
-                  }
-                }
-              ]
-            }
-          ],
+          contents: [{
+            parts: hasAnonymizedText
+              ? [
+                  { text: prompt },
+                  { text: `TEXTO ANONIMIZADO DEL DOCUMENTO:\n\n${documentText.trim()}` }
+                ]
+              : [
+                  { text: prompt },
+                  { inlineData: { mimeType, data: fileBase64 } }
+                ]
+          }],
           generationConfig: {
             responseMimeType: "application/json"
           }

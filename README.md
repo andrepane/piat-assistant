@@ -29,6 +29,12 @@ bloquean el envío. Si el PDF es un escaneo o no contiene texto extraíble, la a
 exige igualmente la comprobación visual. El archivo no se envía a PDF.js ni a otro servidor durante
 esta inspección: el análisis del texto ocurre en el navegador.
 
+Los documentos Word `.docx` siguen un flujo diferente: el navegador abre localmente el contenedor,
+extrae únicamente el texto visible del documento, cabeceras y pies, sustituye identificadores
+conocidos y muestra un editor obligatorio. Gemini recibe exclusivamente el texto aprobado. El Word,
+sus metadatos, comentarios, texto eliminado u oculto e imágenes no se incluyen en la petición. Este flujo
+utiliza `fflate` 0.8.3 para leer el contenedor ZIP de Word sin subirlo.
+
 Cuando se analiza documentación de un paciente existente, la extracción revisada se compara con la
 ficha consolidada. La aplicación omite valores vacíos y datos idénticos, conserva por defecto la
 información actual y permite incorporar únicamente los cambios seleccionados. El análisis registra

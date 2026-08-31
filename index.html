@@ -115,7 +115,7 @@
           <div class="section-heading">
             <div>
               <h3>Documentación</h3>
-              <p>Documentos analizados. Los PDF originales no se conservan en PIAT Assistant.</p>
+              <p>Documentos analizados. Los archivos originales no se conservan en PIAT Assistant.</p>
             </div>
             <button id="showDocumentUploadButton" type="button">+ Analizar documento</button>
           </div>
@@ -139,9 +139,9 @@
               </div>
             </div>
             <div class="form-group">
-              <label for="existingPatientDocument">Archivo PDF</label>
-              <input id="existingPatientDocument" type="file" accept="application/pdf,.pdf" required>
-              <small>Máximo 8 MB. Debe estar anonimizado antes de enviarlo a Gemini.</small>
+              <label for="existingPatientDocument">Archivo PDF o Word</label>
+              <input id="existingPatientDocument" type="file" accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx" required>
+              <small>Máximo 8 MB. Word se anonimiza como texto localmente; PDF debe estar anonimizado.</small>
             </div>
             <div class="actions">
               <button id="cancelDocumentUploadButton" type="button" class="secondary-button">Cancelar</button>
@@ -211,12 +211,12 @@
           <input
             type="file"
             id="patientDocuments"
-            accept="application/pdf,.pdf"
+            accept="application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
           >
 
           <small>
-            Selecciona una copia anonimizada. No incluyas nombre, NH ni otros
-            identificadores del menor.
+            Selecciona un PDF ya anonimizado o un Word. En Word revisarás localmente
+            el texto anonimizado antes de enviarlo.
           </small>
         </div>
 
@@ -331,6 +331,28 @@
       <div class="actions privacy-actions">
         <button id="cancelPrivacyReviewButton" type="button" class="secondary-button">Cancelar</button>
         <button id="confirmPrivacyReviewButton" type="button" disabled>Enviar a Gemini</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="wordAnonymizationDialog" class="privacy-dialog word-anonymization-dialog" aria-labelledby="wordAnonymizationTitle">
+    <form method="dialog">
+      <h2 id="wordAnonymizationTitle">Revisar texto anonimizado</h2>
+      <p class="privacy-warning">
+        Este texto se ha extraído del Word en tu navegador. Gemini no recibirá el archivo,
+        sus imágenes, comentarios, texto eliminado u oculto ni metadatos.
+      </p>
+      <p id="wordAnonymizationSummary"></p>
+      <label for="wordAnonymizedText" class="word-text-label">Texto que se enviará a Gemini</label>
+      <textarea id="wordAnonymizedText" rows="18" spellcheck="false"></textarea>
+      <p id="wordAnonymizationStatus" class="word-anonymization-status" aria-live="polite"></p>
+      <label class="privacy-confirmation">
+        <input id="wordAnonymizationCheckbox" type="checkbox">
+        <span>He revisado el texto y confirmo que no contiene información identificativa.</span>
+      </label>
+      <div class="actions privacy-actions">
+        <button id="cancelWordAnonymizationButton" type="button" class="secondary-button">Cancelar</button>
+        <button id="confirmWordAnonymizationButton" type="button" disabled>Analizar texto</button>
       </div>
     </form>
   </dialog>
