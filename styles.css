@@ -532,6 +532,41 @@ button:disabled {
   overflow-wrap: anywhere;
 }
 
+.privacy-scan-result {
+  margin: 14px 0;
+  padding: 13px 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  background: #f8fafc;
+}
+
+.privacy-scan-result p {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.privacy-scan-result ul {
+  margin: 10px 0 0;
+  padding-left: 22px;
+}
+
+.privacy-scan-loading {
+  color: #475569;
+}
+
+.privacy-scan-unreadable,
+.privacy-scan-error {
+  border-color: #d97706;
+  background: #fffbeb;
+}
+
+.privacy-scan-blocked {
+  border-color: #b91c1c;
+  background: #fef2f2;
+  color: #991b1b;
+  font-weight: 600;
+}
+
 .privacy-confirmation {
   display: flex;
   align-items: flex-start;
