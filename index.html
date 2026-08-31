@@ -141,7 +141,7 @@
             <div class="form-group">
               <label for="existingPatientDocument">Archivo PDF</label>
               <input id="existingPatientDocument" type="file" accept="application/pdf,.pdf" required>
-              <small>Máximo 8 MB. El PDF se descartará después del análisis.</small>
+              <small>Máximo 8 MB. Debe estar anonimizado antes de enviarlo a Gemini.</small>
             </div>
             <div class="actions">
               <button id="cancelDocumentUploadButton" type="button" class="secondary-button">Cancelar</button>
@@ -215,8 +215,8 @@
           >
 
           <small>
-            En esta fase puedes seleccionar un PDF. La gestión de varios documentos
-            se incorporará dentro de la ficha del paciente.
+            Selecciona una copia anonimizada. No incluyas nombre, NH ni otros
+            identificadores del menor.
           </small>
         </div>
 
@@ -278,6 +278,33 @@
     </section>
 
   </main>
+
+  <dialog id="privacyReviewDialog" class="privacy-dialog" aria-labelledby="privacyReviewTitle">
+    <form method="dialog">
+      <h2 id="privacyReviewTitle">Comprobar privacidad antes de enviar</h2>
+      <p class="privacy-warning">
+        Este PDF se enviará a Gemini. PIAT Assistant todavía no puede garantizar una
+        anonimización automática del documento.
+      </p>
+      <p>Revisa la copia que has seleccionado y confirma que has eliminado:</p>
+      <ul class="privacy-checklist">
+        <li>Nombre y apellidos del menor y de sus familiares.</li>
+        <li>NH, DNI, NUSS y cualquier número de expediente.</li>
+        <li>Fecha de nacimiento exacta, dirección y datos de contacto.</li>
+        <li>Centro escolar, profesionales, firmas, sellos, QR y fotografías identificables.</li>
+        <li>Identificadores escritos dentro de párrafos o imágenes escaneadas.</li>
+      </ul>
+      <p id="privacyFileName" class="privacy-file-name"></p>
+      <label class="privacy-confirmation">
+        <input id="privacyConfirmationCheckbox" type="checkbox">
+        <span>He revisado el PDF y he eliminado los identificadores indicados antes de enviarlo.</span>
+      </label>
+      <div class="actions privacy-actions">
+        <button id="cancelPrivacyReviewButton" type="button" class="secondary-button">Cancelar</button>
+        <button id="confirmPrivacyReviewButton" type="button" disabled>Enviar a Gemini</button>
+      </div>
+    </form>
+  </dialog>
 
 <script type="module" src="script.js"></script>
 </body>

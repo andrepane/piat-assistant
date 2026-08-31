@@ -57,6 +57,10 @@ function hasExpectedExtractionShape(value) {
   );
 }
 
+export function hasPrivacyConfirmation(value) {
+  return value === true;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
@@ -73,7 +77,13 @@ export default async function handler(req, res) {
       });
     }
 
-    const { fileBase64, mimeType } = req.body;
+    const { fileBase64, mimeType, privacyConfirmed } = req.body || {};
+
+    if (!hasPrivacyConfirmation(privacyConfirmed)) {
+      return res.status(400).json({
+        error: "Debes confirmar que el documento está anonimizado"
+      });
+    }
 
     if (!fileBase64 || !mimeType) {
       return res.status(400).json({

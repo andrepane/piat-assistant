@@ -492,3 +492,62 @@ button:disabled {
   cursor: wait;
   opacity: 0.65;
 }
+
+.privacy-dialog {
+  width: min(640px, calc(100% - 32px));
+  max-height: calc(100vh - 32px);
+  overflow: auto;
+  padding: 26px;
+  border: 0;
+  border-radius: 14px;
+  color: #1f2937;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.28);
+}
+
+.privacy-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.58);
+}
+
+.privacy-dialog h2 {
+  margin: 0 0 14px;
+}
+
+.privacy-warning {
+  padding: 13px 15px;
+  border-left: 4px solid #b45309;
+  background: #fffbeb;
+  line-height: 1.45;
+}
+
+.privacy-checklist {
+  padding-left: 22px;
+  line-height: 1.55;
+}
+
+.privacy-file-name {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.privacy-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 18px 0;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.privacy-confirmation input {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+}
+
+.privacy-actions {
+  justify-content: flex-end;
+}
