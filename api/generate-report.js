@@ -7,6 +7,9 @@ import {
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
 const MAX_CONTEXT_LENGTH = 500000;
+const GEMINI_REPORT_URL =
+  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+const GEMINI_MAX_ATTEMPTS = 3;
 const FIREBASE_JWKS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
 );
@@ -32,6 +35,67 @@ export function isSupportedReportRequest(type, context) {
   if (type !== REPORT_TYPE.PIAT_REVISION || !context || typeof context !== "object") return false;
   const serialized = JSON.stringify(context);
   return serialized.length > 2 && serialized.length <= MAX_CONTEXT_LENGTH;
+}
+
+export function isRetryableGeminiStatus(status) {
+  return status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
+}
+
+export function getGeminiReportError(status) {
+  if (status === 429) {
+    return {
+      status: 429,
+      code: "GEMINI_RATE_LIMIT",
+      error: "Gemini ha alcanzado temporalmente su límite de uso. Espera un minuto y vuelve a intentarlo."
+    };
+  }
+  if (status === 503 || status === 500 || status === 502 || status === 504) {
+    return {
+      status: 503,
+      code: "GEMINI_TEMPORARILY_UNAVAILABLE",
+      error: "Gemini está temporalmente saturado. Vuelve a intentarlo dentro de unos minutos."
+    };
+  }
+  if (status === 401 || status === 403) {
+    return {
+      status: 500,
+      code: "GEMINI_CONFIGURATION_ERROR",
+      error: "Gemini ha rechazado la configuración del servicio. Revisa la API key en Vercel."
+    };
+  }
+  return {
+    status: 502,
+    code: "GEMINI_REQUEST_FAILED",
+    error: "Gemini ha rechazado la generación del informe. Inténtalo de nuevo."
+  };
+}
+
+function wait(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function requestGeminiReport(body) {
+  let response;
+  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+    response = await fetch(GEMINI_REPORT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY
+      },
+      body
+    });
+    if (response.ok || !isRetryableGeminiStatus(response.status) || attempt === GEMINI_MAX_ATTEMPTS) {
+      return response;
+    }
+    const retryAfterSeconds = Number(response.headers.get("retry-after"));
+    const backoff = Number.isFinite(retryAfterSeconds)
+      ? Math.min(retryAfterSeconds * 1000, 5000)
+      : 750 * (2 ** (attempt - 1));
+    console.warn(`Gemini report attempt ${attempt} failed with ${response.status}; retrying.`);
+    await wait(backoff);
+  }
+  return response;
 }
 
 export default async function handler(req, res) {
@@ -76,26 +140,22 @@ REGLAS OBLIGATORIAS:
 ${JSON.stringify({ titulo: "Plan de Intervención de Atención Temprana de Revisión", secciones: sectionSchema })}
 `;
 
-    const response = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": process.env.GEMINI_API_KEY
-        },
-        body: JSON.stringify({
-          contents: [{ parts: [
-            { text: prompt },
-            { text: `CONTEXTO CLÍNICO ANONIMIZADO:\n${JSON.stringify(context)}` }
-          ] }],
-          generationConfig: { responseMimeType: "application/json" }
-        })
-      }
-    );
+    const response = await requestGeminiReport(JSON.stringify({
+      contents: [{ parts: [
+        { text: prompt },
+        { text: `CONTEXTO CLÍNICO ANONIMIZADO:\n${JSON.stringify(context)}` }
+      ] }],
+      generationConfig: { responseMimeType: "application/json" }
+    }));
     if (!response.ok) {
-      console.error("Gemini report error:", await response.text());
-      return res.status(502).json({ error: "Gemini no ha podido generar el informe" });
+      const upstreamError = await response.text();
+      const reportError = getGeminiReportError(response.status);
+      console.error(`Gemini report error (${response.status}):`, upstreamError);
+      return res.status(reportError.status).json({
+        error: reportError.error,
+        code: reportError.code,
+        retryable: isRetryableGeminiStatus(response.status)
+      });
     }
     const data = await response.json();
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
