@@ -28,11 +28,16 @@ export function extractTextFromWordXml(xml) {
       )
       .replace(/<w:instrText\b[^>]*>[\s\S]*?<\/w:instrText\s*>/gi, "")
       .replace(/<w:delText\b[^>]*>[\s\S]*?<\/w:delText\s*>/gi, "")
+      .replace(/<w:tc\b[^>]*>([\s\S]*?)<\/w:tc\s*>/gi, (_cell, content) =>
+        `${content.replace(/<\/w:p\s*>/gi, " ")}\t`
+      )
+      .replace(/<\/w:tr\s*>/gi, "\n")
       .replace(/<w:tab\b[^>]*\/?\s*>/gi, "\t")
       .replace(/<w:br\b[^>]*\/?\s*>/gi, "\n")
       .replace(/<\/w:p\s*>/gi, "\n")
       .replace(/<[^>]+>/g, "")
   )
+    .replace(/ *\t */g, "\t")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();

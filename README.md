@@ -35,6 +35,13 @@ conocidos y muestra un editor obligatorio. Gemini recibe exclusivamente el texto
 sus metadatos, comentarios, texto eliminado u oculto e imágenes no se incluyen en la petición. Este flujo
 utiliza `fflate` 0.8.3 para leer el contenedor ZIP de Word sin subirlo.
 
+Cuando el documento se clasifica como `evaluacion`, el análisis utiliza un esquema específico para
+conservar cada prueba, resultado global, área, subárea, puntuación, observación y conclusión. En los
+Word se mantienen además las separaciones entre filas y columnas de las tablas durante la extracción
+local para evitar que una puntuación quede desvinculada de su área.
+Un documento ya registrado puede volver a analizarse con un extractor actualizado: se conserva el
+análisis anterior y el registro documental pasa a señalar la extracción revisada más reciente.
+
 Cuando se analiza documentación de un paciente existente, la extracción revisada se compara con la
 ficha consolidada. La aplicación omite valores vacíos y datos idénticos, conserva por defecto la
 información actual y permite incorporar únicamente los cambios seleccionados. El análisis registra
