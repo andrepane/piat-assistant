@@ -13,6 +13,16 @@ test("extrae párrafos, saltos y entidades del XML de Word", () => {
   assert.equal(extractTextFromWordXml(xml), "Niño & familia\nSegundo\tdato");
 });
 
+test("conserva filas y columnas de tablas Word para analizar puntuaciones", () => {
+  const xml = '<w:document><w:tbl>' +
+    '<w:tr><w:tc><w:p><w:r><w:t>Área</w:t></w:r></w:p></w:tc>' +
+    '<w:tc><w:p><w:r><w:t>Percentil</w:t></w:r></w:p></w:tc></w:tr>' +
+    '<w:tr><w:tc><w:p><w:r><w:t>Comunicación</w:t></w:r></w:p></w:tc>' +
+    '<w:tc><w:p><w:r><w:t>2</w:t></w:r></w:p></w:tc></w:tr>' +
+    '</w:tbl></w:document>';
+  assert.equal(extractTextFromWordXml(xml), "Área\tPercentil\nComunicación\t2");
+});
+
 test("excluye texto eliminado, campos internos y contenido oculto", () => {
   const xml = '<w:document><w:p><w:r><w:t>Visible</w:t></w:r>' +
     '<w:del><w:r><w:delText>Nombre borrado</w:delText></w:r></w:del>' +

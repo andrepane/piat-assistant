@@ -1336,7 +1336,13 @@ async function prepareDocumentForAnalysis(file, knownIdentifiers) {
   return privacyReview ? { privacyReview, documentText: null } : null;
 }
 
-async function analyzeDocumentFile(file, user, privacyReview, documentText = null) {
+async function analyzeDocumentFile(
+  file,
+  user,
+  privacyReview,
+  documentText = null,
+  documentType = "otro"
+) {
   if (!privacyReview?.confirmed) {
     throw new Error("Debes confirmar que el documento está anonimizado antes de enviarlo.");
   }
@@ -1356,7 +1362,8 @@ async function analyzeDocumentFile(file, user, privacyReview, documentText = nul
       fileBase64,
       documentText,
       mimeType: kind === "docx" ? DOCX_MIME_TYPE : PDF_MIME_TYPE,
-      privacyConfirmed: true
+      privacyConfirmed: true,
+      documentType
     })
   });
   const responseText = await response.text();
@@ -1707,7 +1714,8 @@ patientDocumentUploadForm.addEventListener("submit", async (event) => {
         file,
         user,
         prepared.privacyReview,
-        prepared.documentText
+        prepared.documentText,
+        patientDocumentType.value
       )),
       targetPatientId: patientId,
       documentType: patientDocumentType.value,
@@ -1871,7 +1879,8 @@ analyzePatientButton.addEventListener("click", async () => {
       file,
       user,
       prepared.privacyReview,
-      prepared.documentText
+      prepared.documentText,
+      newPatientDocumentType.value
     );
     patientDocuments.value = "";
     selectedDocuments.innerHTML = "";
@@ -2037,19 +2046,28 @@ async function saveDocumentAnalysisForExistingPatient(user, selectedPaths) {
       unavailableError.code = "patient/not-available";
       throw unavailableError;
     }
-    if (existingDocument.exists()) {
-      const duplicateError = new Error("Este mismo documento ya fue analizado para el paciente.");
-      duplicateError.code = "document/already-exists";
-      throw duplicateError;
-    }
     if (!valuesAreEqual(getPatientClinicalRecord(patientSnapshot.data()) || {}, baseRecord)) {
       const conflictError = new Error("La ficha cambió mientras comparabas los datos.");
       conflictError.code = "patient/comparison-conflict";
       throw conflictError;
     }
 
-    transaction.set(documentRef, documentData);
-    transaction.set(analysisRef, analysisData);
+    if (existingDocument.exists()) {
+      transaction.update(documentRef, {
+        analysisId: analysisRef.id,
+        tipo: session.documentType,
+        modoEntrada: session.inputMode,
+        fechaDocumento: session.documentDate || existingDocument.data().fechaDocumento || null,
+        estado: DOCUMENT_STATUS.ANALYZED,
+        ultimaActualizacion: serverTimestamp()
+      });
+    } else {
+      transaction.set(documentRef, documentData);
+    }
+    transaction.set(analysisRef, {
+      ...analysisData,
+      reanalisis: existingDocument.exists()
+    });
     if (changes.length > 0) transaction.set(revisionRef, revisionData);
     const patientUpdate = {
       ultimoAnalisisId: analysisRef.id,

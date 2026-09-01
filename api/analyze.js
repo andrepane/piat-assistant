@@ -4,6 +4,56 @@ const MAX_FILE_SIZE_BYTES = 8 * 1024 * 1024;
 const MAX_DOCUMENT_TEXT_LENGTH = 250000;
 const ALLOWED_MIME_TYPES = new Set(["application/pdf"]);
 const DOCX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const SUPPORTED_DOCUMENT_TYPES = new Set([
+  "piat_inicial",
+  "piat_revision",
+  "evaluacion",
+  "informe_clinico",
+  "informe_escolar",
+  "otro"
+]);
+
+const EXTRACTION_FIELD = Object.freeze({
+  valor: null,
+  confianza: "alta|media|baja",
+  evidencia: null
+});
+
+const EVALUATION_SCHEMA_EXAMPLE = Object.freeze([{
+  nombre_prueba: EXTRACTION_FIELD,
+  fecha_aplicacion: EXTRACTION_FIELD,
+  edad_cronologica: EXTRACTION_FIELD,
+  version_baremo: EXTRACTION_FIELD,
+  resultado_global: {
+    puntuacion_directa: EXTRACTION_FIELD,
+    percentil: EXTRACTION_FIELD,
+    puntuacion_tipica: EXTRACTION_FIELD,
+    indice_compuesto: EXTRACTION_FIELD,
+    edad_equivalente: EXTRACTION_FIELD,
+    intervalo_confianza: EXTRACTION_FIELD,
+    interpretacion: EXTRACTION_FIELD
+  },
+  areas: [{
+    nombre: EXTRACTION_FIELD,
+    puntuacion_directa: EXTRACTION_FIELD,
+    percentil: EXTRACTION_FIELD,
+    puntuacion_tipica: EXTRACTION_FIELD,
+    edad_equivalente: EXTRACTION_FIELD,
+    interpretacion: EXTRACTION_FIELD,
+    subareas: [{
+      nombre: EXTRACTION_FIELD,
+      puntuacion_directa: EXTRACTION_FIELD,
+      percentil: EXTRACTION_FIELD,
+      puntuacion_tipica: EXTRACTION_FIELD,
+      edad_equivalente: EXTRACTION_FIELD,
+      interpretacion: EXTRACTION_FIELD
+    }]
+  }],
+  observaciones_cualitativas: EXTRACTION_FIELD,
+  fortalezas: [],
+  necesidades: [],
+  conclusion: EXTRACTION_FIELD
+}]);
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
 const FIREBASE_JWKS = createRemoteJWKSet(
@@ -59,6 +109,21 @@ function hasExpectedExtractionShape(value) {
   );
 }
 
+export function hasExpectedEvaluationExtractionShape(value) {
+  return Boolean(
+    hasExpectedExtractionShape(value) &&
+    Array.isArray(value.evaluaciones) &&
+    value.evaluaciones.length > 0 &&
+    value.evaluaciones.every((evaluation) =>
+      evaluation &&
+      typeof evaluation === "object" &&
+      evaluation.nombre_prueba &&
+      evaluation.resultado_global &&
+      Array.isArray(evaluation.areas)
+    )
+  );
+}
+
 export function hasPrivacyConfirmation(value) {
   return value === true;
 }
@@ -68,6 +133,28 @@ export function getAnalysisInputKind({ fileBase64, documentText } = {}) {
   const hasAnonymizedText = typeof documentText === "string" && documentText.trim().length > 0;
   if (hasPdf === hasAnonymizedText) return null;
   return hasPdf ? "pdf" : "anonymized_text";
+}
+
+export function isSupportedDocumentType(value) {
+  return SUPPORTED_DOCUMENT_TYPES.has(value);
+}
+
+export function getEvaluationExtractionInstructions(documentType) {
+  if (documentType !== "evaluacion") return "";
+  return `
+INSTRUCCIONES ESPECÍFICAS PARA EVALUACIONES Y PRUEBAS:
+- El documento principal es una evaluación. No la resumas en un único resultado global.
+- Extrae todas las pruebas que aparezcan y una entrada independiente por prueba.
+- Conserva todas las filas de resultados disponibles, incluidas áreas y subáreas.
+- Para cada resultado, copia por separado puntuación directa, percentil, puntuación típica,
+  índice compuesto, edad equivalente, intervalo de confianza e interpretación cuando consten.
+- Mantén las unidades y expresiones originales; no conviertas ni calcules puntuaciones.
+- Si una columna o puntuación no aparece, usa valor null, pero no omitas el área o subárea.
+- En Battelle, busca expresamente el total, Personal-Social, Adaptativa, Motora, Comunicación,
+  Cognitiva y las subáreas que figuren en el documento.
+- No confundas edad cronológica con edad equivalente ni puntuación directa con percentil.
+- Fortalezas, necesidades y conclusión solo pueden proceder de texto explícito del documento.
+`;
 }
 
 export default async function handler(req, res) {
@@ -86,12 +173,22 @@ export default async function handler(req, res) {
       });
     }
 
-    const { fileBase64, documentText, mimeType, privacyConfirmed } = req.body || {};
+    const {
+      fileBase64,
+      documentText,
+      mimeType,
+      privacyConfirmed,
+      documentType = "otro"
+    } = req.body || {};
 
     if (!hasPrivacyConfirmation(privacyConfirmed)) {
       return res.status(400).json({
         error: "Debes confirmar que el documento está anonimizado"
       });
+    }
+
+    if (!isSupportedDocumentType(documentType)) {
+      return res.status(400).json({ error: "Tipo de documento no válido" });
     }
 
     const inputKind = getAnalysisInputKind({ fileBase64, documentText });
@@ -152,6 +249,7 @@ REGLAS OBLIGATORIAS:
 - Para cada campo, incluye una evidencia textual breve tomada del documento.
 - La evidencia debe ser una cita o fragmento muy corto, no una paráfrasis extensa.
 - Devuelve únicamente JSON válido.
+${getEvaluationExtractionInstructions(documentType)}
 
 Usa esta estructura:
 
@@ -294,7 +392,7 @@ Usa esta estructura:
     "intervenciones_externas": []
   },
 
-  "evaluaciones": [],
+  "evaluaciones": ${JSON.stringify(EVALUATION_SCHEMA_EXAMPLE, null, 2)},
 
   "objetivos": {
     "actuales": [],
@@ -369,6 +467,13 @@ Usa esta estructura:
       console.error("Gemini returned an unexpected extraction shape");
       return res.status(502).json({
         error: "Gemini devolvió una estructura inesperada"
+      });
+    }
+
+    if (documentType === "evaluacion" && !hasExpectedEvaluationExtractionShape(parsedResult)) {
+      console.error("Gemini returned an incomplete evaluation extraction");
+      return res.status(502).json({
+        error: "No se han podido estructurar los resultados de la evaluación"
       });
     }
 
