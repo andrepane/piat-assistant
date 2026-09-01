@@ -1478,13 +1478,20 @@ generatePiatRevisionButton.addEventListener("click", async () => {
     generatePiatRevisionButton.textContent = "Generando...";
     patientReportsStatus.textContent = "Preparando el contexto clínico anonimizado...";
     const patientRef = doc(db, "patients", patientId);
-    const [documentsSnapshot, revisionsSnapshot] = await Promise.all([
+    const [documentsSnapshot, analysesSnapshot, revisionsSnapshot] = await Promise.all([
       getDocs(collection(patientRef, "documents")),
+      getDocs(collection(patientRef, "analyses")),
       getDocs(collection(patientRef, "revisions"))
     ]);
     const context = buildPiatRevisionContext({
       clinicalRecord,
       documents: documentsSnapshot.docs.map((snapshot) => ({
+        id: snapshot.id,
+        ...snapshot.data(),
+        fechaAnalisis: timestampToIso(snapshot.data().fechaCreacion)
+      })),
+      analyses: analysesSnapshot.docs.map((snapshot) => ({
+        id: snapshot.id,
         ...snapshot.data(),
         fechaAnalisis: timestampToIso(snapshot.data().fechaCreacion)
       })),
@@ -1525,6 +1532,7 @@ generatePiatRevisionButton.addEventListener("click", async () => {
       fuente: {
         fichaActualizadaAt: timestampToIso(currentPatientData.ultimaActualizacion),
         documentIds: documentsSnapshot.docs.map((snapshot) => snapshot.id),
+        analysisIds: analysesSnapshot.docs.map((snapshot) => snapshot.id),
         revisionIds: revisionsSnapshot.docs.map((snapshot) => snapshot.id)
       },
       privacidad: {

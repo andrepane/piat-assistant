@@ -31,7 +31,14 @@ test("minimiza la ficha y excluye identificadores directos y evidencia", () => {
 test("construye contexto longitudinal sin nombres de archivos", () => {
   const context = buildPiatRevisionContext({
     clinicalRecord: { familia: { prioridades: { valor: "Comunicación" } } },
-    documents: [{ nombreOriginal: "Nombre real.pdf", tipo: "piat_revision", fechaDocumento: "2026-08-01" }],
+    documents: [{ id: "doc-1", nombreOriginal: "Nombre real.pdf", tipo: "piat_revision", fechaDocumento: "2026-08-01" }],
+    analyses: [{
+      documentId: "doc-1",
+      extraccionRevisada: {
+        identificacion: { nombre: { valor: "Nombre real" }, edad: { valor: "5 años", evidencia: "Edad" } },
+        evaluaciones: [{ prueba: "Battelle", resultado: "Comunicación por debajo de lo esperado" }]
+      }
+    }],
     revisions: [{ tipoEvento: "revision_manual", cambios: [
       { ruta: "familia.prioridades", valorNuevo: "Lenguaje" },
       { ruta: "identificacion.nombre", valorNuevo: "Nombre real" }
@@ -40,8 +47,45 @@ test("construye contexto longitudinal sin nombres de archivos", () => {
 
   assert.equal(context.documentos[0].nombreOriginal, undefined);
   assert.equal(context.fichaActual.familia.prioridades, "Comunicación");
+  assert.equal(context.documentos[0].informacionExtraida.identificacion.edad, "5 años");
+  assert.equal(context.documentos[0].informacionExtraida.identificacion.nombre, undefined);
+  assert.equal(context.documentos[0].informacionExtraida.evaluaciones[0].prueba, "Battelle");
   assert.equal(context.evolucion.length, 1);
   assert.equal(JSON.stringify(context).includes("Nombre real"), false);
+});
+
+test("enlaza cada documento con su extracción revisada y no con la original", () => {
+  const context = buildPiatRevisionContext({
+    clinicalRecord: {},
+    documents: [
+      {
+        id: "piat",
+        tipo: "piat_revision",
+        fechaDocumento: null,
+        fechaAnalisis: "2026-08-21T09:00:00Z"
+      },
+      {
+        id: "battelle",
+        tipo: "evaluacion",
+        fechaDocumento: "2026-08-20",
+        fechaAnalisis: "2026-08-21T10:00:00Z"
+      }
+    ],
+    analyses: [
+      {
+        documentId: "battelle",
+        fechaAnalisis: "2026-08-21T10:00:00Z",
+        extraccionOriginal: { evaluaciones: [{ resultado: "Sin revisar" }] },
+        extraccionRevisada: { evaluaciones: [{ resultado: "Resultado revisado" }] }
+      }
+    ]
+  });
+
+  assert.equal(context.documentos[0].tipo, "piat_revision");
+  assert.deepEqual(context.documentos[0].informacionExtraida, {});
+  assert.equal(context.documentos[1].tipo, "evaluacion");
+  assert.equal(context.documentos[1].informacionExtraida.evaluaciones[0].resultado, "Resultado revisado");
+  assert.equal(JSON.stringify(context).includes("Sin revisar"), false);
 });
 
 test("valida que Gemini devuelva todas las secciones en orden", () => {
