@@ -79,17 +79,41 @@ export function minimizeClinicalData(value) {
   return value ?? null;
 }
 
-export function buildPiatRevisionContext({ clinicalRecord, documents = [], revisions = [] }) {
+function documentSortDate(documentData) {
+  return String(documentData.fechaAnalisis || documentData.fechaDocumento || "");
+}
+
+function latestReviewedAnalysesByDocument(analyses = []) {
+  const result = new Map();
+  analyses.forEach((analysis) => {
+    if (!analysis?.documentId || !analysis.extraccionRevisada) return;
+    const current = result.get(analysis.documentId);
+    const analysisDate = String(analysis.fechaAnalisis || analysis.fechaAnalisisCliente || "");
+    const currentDate = String(current?.fechaAnalisis || current?.fechaAnalisisCliente || "");
+    if (!current || analysisDate >= currentDate) result.set(analysis.documentId, analysis);
+  });
+  return result;
+}
+
+export function buildPiatRevisionContext({
+  clinicalRecord,
+  documents = [],
+  analyses = [],
+  revisions = []
+}) {
+  const analysesByDocument = latestReviewedAnalysesByDocument(analyses);
   return {
     fichaActual: minimizeClinicalData(clinicalRecord || {}),
     documentos: documents
       .map((documentData) => ({
         tipo: documentData.tipo || "otro",
         fechaDocumento: documentData.fechaDocumento || null,
-        fechaAnalisis: documentData.fechaAnalisis || null
+        fechaAnalisis: documentData.fechaAnalisis || null,
+        informacionExtraida: minimizeClinicalData(
+          analysesByDocument.get(documentData.id)?.extraccionRevisada || {}
+        )
       }))
-      .sort((first, second) => String(first.fechaDocumento || first.fechaAnalisis || "")
-        .localeCompare(String(second.fechaDocumento || second.fechaAnalisis || ""))),
+      .sort((first, second) => documentSortDate(first).localeCompare(documentSortDate(second))),
     evolucion: revisions
       .map((revision) => ({
         tipo: revision.tipoEvento || "actualizacion",
