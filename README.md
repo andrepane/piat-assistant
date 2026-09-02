@@ -59,6 +59,10 @@ oficial, pensado para revisar y copiar sus apartados en Pangea. El documento se 
 en el navegador: el nombre y el NH no se envían a Gemini ni a un endpoint de exportación. El
 resultado siempre requiere revisión profesional antes de su uso.
 
+La redacción del PIAT de revisión aplica una guía clínica y un modelo de estilo anonimizado
+distinto para cada apartado. Estos modelos se han derivado de PIAT profesionales, enseñan la
+estructura y el registro esperados y no contienen datos reales ni actúan como fuente clínica.
+
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
 - Estados de documento previstos: `subido`, `procesando`, `analizado`, `error`, `archivado`.
