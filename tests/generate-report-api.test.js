@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   buildGeminiGenerationConfig,
+  GEMINI_REPORT_MODEL,
   getGeminiReportError,
   isRetryableGeminiStatus,
   isSupportedReportRequest
@@ -80,4 +81,8 @@ test("limita el razonamiento y la salida de cada bloque de Gemini", () => {
     config.responseJsonSchema.properties.secciones.items.properties.id.enum,
     entries.map(([id]) => id)
   );
+});
+
+test("usa el modelo estable de baja latencia para redactar informes", () => {
+  assert.equal(GEMINI_REPORT_MODEL, "gemini-3.5-flash-lite");
 });
