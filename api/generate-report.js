@@ -1,5 +1,6 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import {
+  buildPiatRevisionBatchContext,
   hasExpectedReportShape,
   getReportSectionsByIds,
   REPORT_TYPE
@@ -157,6 +158,7 @@ export default async function handler(req, res) {
     }
 
     const sectionEntries = getReportSectionsByIds(sectionIds);
+    const compactContext = buildPiatRevisionBatchContext(context, sectionIds);
     const sectionSchema = sectionEntries.map(([id, titulo]) => ({
       id,
       titulo,
@@ -167,7 +169,7 @@ export default async function handler(req, res) {
     const response = await requestGeminiReport(JSON.stringify({
       contents: [{ parts: [
         { text: prompt },
-        { text: `CONTEXTO CLÍNICO ANONIMIZADO:\n${JSON.stringify(context)}` }
+        { text: `CONTEXTO CLÍNICO ANONIMIZADO Y SELECCIONADO PARA ESTOS APARTADOS:\n${JSON.stringify(compactContext)}` }
       ] }],
       generationConfig: buildGeminiGenerationConfig(sectionEntries)
     }));

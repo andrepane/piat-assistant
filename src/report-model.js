@@ -95,6 +95,90 @@ export function getReportSectionsByIds(sectionIds) {
   return sections;
 }
 
+const REPORT_SECTION_CONTEXT_KEYS = Object.freeze({
+  informacion_diagnostica_y_medica: ["diagnostico", "salud"],
+  antecedentes_personales: ["salud", "desarrollo_y_contexto", "informacion_adicional"],
+  antecedentes_familiares: ["familia", "salud", "informacion_adicional"],
+  otros_datos_salud: ["salud", "diagnostico", "apoyo_profesional"],
+  datos_escolarizacion: ["escolarizacion", "apoyo_profesional"],
+  aspectos_biopsicosociales: ["desarrollo_y_contexto", "familia", "escolarizacion"],
+  red_apoyo_profesional: ["apoyo_profesional", "escolarizacion", "salud"],
+  exploracion_pruebas: ["evaluaciones", "identificacion"],
+  interpretacion_evolucion: ["evaluaciones", "desarrollo_y_contexto", "objetivos"],
+  exploracion_cualitativa: ["desarrollo_y_contexto", "evaluaciones"],
+  preocupaciones_familia: ["familia", "desarrollo_y_contexto"],
+  objetivos_conseguidos: ["objetivos", "desarrollo_y_contexto", "evaluaciones"],
+  objetivos_en_proceso: ["objetivos", "desarrollo_y_contexto", "evaluaciones"],
+  objetivos_actuales: ["objetivos", "desarrollo_y_contexto", "evaluaciones", "familia"],
+  familia: ["familia", "objetivos", "desarrollo_y_contexto"],
+  entorno: ["escolarizacion", "objetivos", "desarrollo_y_contexto"],
+  profesionales: ["apoyo_profesional", "objetivos", "salud", "escolarizacion"],
+  sesiones_pautadas: ["apoyo_profesional", "informacion_adicional"],
+  materiales_recursos: ["objetivos", "apoyo_profesional", "informacion_adicional"]
+});
+
+function pickContextKeys(value, allowedKeys) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => allowedKeys.has(key))
+  );
+}
+
+function hasObjectContent(value) {
+  return Boolean(value && typeof value === "object" && Object.keys(value).length > 0);
+}
+
+export function buildPiatRevisionBatchContext(context, sectionIds) {
+  if (!getReportSectionsByIds(sectionIds)) return null;
+  const allowedKeys = new Set(
+    sectionIds.flatMap((sectionId) => REPORT_SECTION_CONTEXT_KEYS[sectionId] || [])
+  );
+  const documents = [];
+  const seenDocuments = new Set();
+  (context?.documentos || []).forEach((documentData) => {
+    const informacionExtraida = pickContextKeys(documentData.informacionExtraida, allowedKeys);
+    if (!hasObjectContent(informacionExtraida)) return;
+    const compactDocument = {
+      tipo: documentData.tipo || "otro",
+      fechaDocumento: documentData.fechaDocumento || null,
+      fechaAnalisis: documentData.fechaAnalisis || null,
+      informacionExtraida
+    };
+    const fingerprint = JSON.stringify(compactDocument);
+    if (seenDocuments.has(fingerprint)) return;
+    seenDocuments.add(fingerprint);
+    documents.push(compactDocument);
+  });
+  const evolucion = (context?.evolucion || []).map((revision) => ({
+    tipo: revision.tipo,
+    fecha: revision.fecha,
+    cambios: (revision.cambios || []).filter((change) =>
+      allowedKeys.has(String(change?.ruta || "").split(".")[0])
+    )
+  })).filter((revision) => revision.cambios.length > 0);
+  return {
+    fichaActual: pickContextKeys(context?.fichaActual, allowedKeys),
+    documentos: documents,
+    evolucion,
+    confirmacionProfesional: context?.confirmacionProfesional || null
+  };
+}
+
+export function getClinicalContextMetrics(context, sectionIds) {
+  const compactContext = buildPiatRevisionBatchContext(context, sectionIds);
+  if (!compactContext) return null;
+  const fullCharacters = JSON.stringify(context || {}).length;
+  const compactCharacters = JSON.stringify(compactContext).length;
+  return {
+    fullCharacters,
+    compactCharacters,
+    approximateTokens: Math.ceil(compactCharacters / 4),
+    reductionPercent: fullCharacters > 0
+      ? Math.max(0, Math.round((1 - compactCharacters / fullCharacters) * 100))
+      : 0
+  };
+}
+
 const OMITTED_KEYS = new Set([
   "nombre",
   "apellidos",
