@@ -98,6 +98,11 @@
     "titulo": "string",
     "secciones": "reportSection[]",
     "version": "number",
+    "confirmacionProfesional": {
+      "objetivosAnteriores": "{texto, clasificacion: conseguido|en_proceso|descartado}[]",
+      "actualizacionClinica": "object",
+      "confirmadoPorProfesional": true
+    },
     "fuente": "reportSourceMetadata",
     "privacidad": "reportPrivacyMetadata",
     "fechaCreacion": "timestamp",

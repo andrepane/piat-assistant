@@ -50,7 +50,11 @@ import {
   validateAnonymizedText
 } from "./src/docx-anonymizer.js";
 import {
+  buildProfessionalConfirmation,
   buildPiatRevisionContext,
+  CLINICAL_UPDATE_FIELDS,
+  getPreviousPiatObjectives,
+  OBJECTIVE_REVIEW_STATUS,
   PIAT_REVISION_SECTIONS,
   REPORT_STATUS,
   REPORT_TYPE
@@ -169,6 +173,13 @@ const patientDocumentsList = document.getElementById("patientDocumentsList");
 const generatePiatRevisionButton = document.getElementById("generatePiatRevisionButton");
 const patientReportsStatus = document.getElementById("patientReportsStatus");
 const patientReportsList = document.getElementById("patientReportsList");
+const reportPreparationForm = document.getElementById("reportPreparationForm");
+const previousObjectivesReview = document.getElementById("previousObjectivesReview");
+const clinicalUpdateFields = document.getElementById("clinicalUpdateFields");
+const reportClinicalPrivacyConfirmation = document.getElementById("reportClinicalPrivacyConfirmation");
+const cancelReportPreparationButton = document.getElementById("cancelReportPreparationButton");
+const confirmReportGenerationButton = document.getElementById("confirmReportGenerationButton");
+const reportPreparationStatus = document.getElementById("reportPreparationStatus");
 const backToPatientFromReportButton = document.getElementById("backToPatientFromReportButton");
 const reportEditorTitle = document.getElementById("reportEditorTitle");
 const reportEditorSubtitle = document.getElementById("reportEditorSubtitle");
@@ -202,6 +213,7 @@ let resolveWordAnonymization = null;
 let currentWordReplacements = [];
 let currentWordKnownIdentifiers = {};
 let currentReportSession = null;
+let currentReportPreparation = null;
 
 function isExtractedField(value) {
   return Boolean(
@@ -856,6 +868,67 @@ function renderReportEditor(reportId, reportData) {
   setVisibleView(reportEditorView);
 }
 
+function resetReportPreparation() {
+  currentReportPreparation = null;
+  reportPreparationForm.hidden = true;
+  previousObjectivesReview.innerHTML = "";
+  clinicalUpdateFields.innerHTML = "";
+  reportClinicalPrivacyConfirmation.checked = false;
+  reportPreparationStatus.textContent = "";
+}
+
+function renderReportPreparation(objectives) {
+  previousObjectivesReview.innerHTML = "";
+  if (objectives.length === 0) {
+    const message = document.createElement("p");
+    message.className = "empty-detail-message";
+    message.textContent = "No se han encontrado objetivos anteriores para clasificar.";
+    previousObjectivesReview.appendChild(message);
+  } else {
+    objectives.forEach((objective, index) => {
+      const row = document.createElement("div");
+      row.className = "objective-review-row";
+      const text = document.createElement("p");
+      text.textContent = objective;
+      const select = document.createElement("select");
+      select.dataset.previousObjectiveIndex = String(index);
+      select.setAttribute("aria-label", `Clasificación del objetivo: ${objective}`);
+      [
+        ["", "Seleccionar estado"],
+        [OBJECTIVE_REVIEW_STATUS.ACHIEVED, "Conseguido"],
+        [OBJECTIVE_REVIEW_STATUS.IN_PROGRESS, "En proceso"],
+        [OBJECTIVE_REVIEW_STATUS.DISCARDED, "Descartado"]
+      ].forEach(([value, label]) => {
+        const option = document.createElement("option");
+        option.value = value;
+        option.textContent = label;
+        select.appendChild(option);
+      });
+      row.append(text, select);
+      previousObjectivesReview.appendChild(row);
+    });
+  }
+
+  clinicalUpdateFields.innerHTML = "";
+  CLINICAL_UPDATE_FIELDS.forEach(([id, labelText]) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "clinical-update-field";
+    const label = document.createElement("label");
+    const textarea = document.createElement("textarea");
+    textarea.id = `clinical-update-${id}`;
+    textarea.dataset.clinicalUpdateId = id;
+    textarea.placeholder = "Novedades observadas desde el PIAT anterior…";
+    label.htmlFor = textarea.id;
+    label.textContent = labelText;
+    wrapper.append(label, textarea);
+    clinicalUpdateFields.appendChild(wrapper);
+  });
+  reportPreparationStatus.textContent = "";
+  reportClinicalPrivacyConfirmation.checked = false;
+  reportPreparationForm.hidden = false;
+  reportPreparationForm.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderPatientReports(reportSnapshots) {
   patientReportsList.innerHTML = "";
   patientReportsStatus.textContent = "";
@@ -937,6 +1010,7 @@ async function openPatientDetail(patientId) {
       documentsSnapshot.docs
     );
     renderPatientReports(reportsSnapshot?.docs || []);
+    resetReportPreparation();
     if (!reportsSnapshot) {
       patientReportsStatus.textContent =
         "Los informes no están disponibles. Comprueba que las reglas de Firestore estén actualizadas.";
@@ -1482,8 +1556,8 @@ generatePiatRevisionButton.addEventListener("click", async () => {
 
   try {
     generatePiatRevisionButton.disabled = true;
-    generatePiatRevisionButton.textContent = "Generando...";
-    patientReportsStatus.textContent = "Preparando el contexto clínico anonimizado...";
+    generatePiatRevisionButton.textContent = "Preparando...";
+    patientReportsStatus.textContent = "Cargando objetivos y documentación clínica...";
     const patientRef = doc(db, "patients", patientId);
     const [documentsSnapshot, analysesSnapshot, revisionsSnapshot] = await Promise.all([
       getDocs(collection(patientRef, "documents")),
@@ -1507,7 +1581,80 @@ generatePiatRevisionButton.addEventListener("click", async () => {
         fecha: timestampToIso(snapshot.data().fechaCreacion)
       }))
     });
-    patientReportsStatus.textContent = "Gemini está redactando el borrador...";
+    const objectives = getPreviousPiatObjectives(context);
+    currentReportPreparation = {
+      patientId,
+      context,
+      objectives,
+      source: {
+        fichaActualizadaAt: timestampToIso(currentPatientData.ultimaActualizacion),
+        documentIds: documentsSnapshot.docs.map((snapshot) => snapshot.id),
+        analysisIds: analysesSnapshot.docs.map((snapshot) => snapshot.id),
+        revisionIds: revisionsSnapshot.docs.map((snapshot) => snapshot.id)
+      }
+    };
+    renderReportPreparation(objectives);
+    patientReportsStatus.textContent = "Revisa la información clínica antes de generar el borrador.";
+  } catch (error) {
+    console.error("Error preparando PIAT de revisión:", error);
+    patientReportsStatus.textContent = error.message || "No se ha podido preparar el informe.";
+  } finally {
+    generatePiatRevisionButton.disabled = false;
+    generatePiatRevisionButton.textContent = "+ Generar PIAT de revisión";
+  }
+});
+
+cancelReportPreparationButton.addEventListener("click", () => {
+  resetReportPreparation();
+  patientReportsStatus.textContent = "Generación cancelada.";
+});
+
+reportPreparationForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const user = auth.currentUser;
+  const preparation = currentReportPreparation;
+  if (!user || !preparation || preparation.patientId !== currentPatientId) return;
+
+  try {
+    reportPreparationStatus.textContent = "";
+    if (!reportClinicalPrivacyConfirmation.checked) {
+      throw new Error("Confirma que las notas no contienen identificadores directos.");
+    }
+    const objectiveReviews = preparation.objectives.map((text, index) => ({
+      text,
+      status: previousObjectivesReview.querySelector(
+        `[data-previous-objective-index="${index}"]`
+      )?.value || ""
+    }));
+    const clinicalUpdate = Object.fromEntries(
+      [...clinicalUpdateFields.querySelectorAll("[data-clinical-update-id]")]
+        .map((textarea) => [textarea.dataset.clinicalUpdateId, textarea.value.trim()])
+    );
+    const combinedNotes = Object.values(clinicalUpdate).filter(Boolean).join("\n");
+    const birthDate = getAtPath(
+      getPatientClinicalRecord(currentPatientData || {}),
+      ["identificacion", "fecha_nacimiento", "valor"]
+    );
+    const privacyFindings = validateAnonymizedText(combinedNotes, {
+      name: getPatientName(currentPatientData || {}),
+      nh: getPatientNH(currentPatientData || {}),
+      birthDate
+    });
+    if (privacyFindings.length > 0) {
+      throw new Error("Las notas contienen identificadores del paciente. Elimínalos antes de continuar.");
+    }
+    const professionalConfirmation = buildProfessionalConfirmation({
+      objectiveReviews,
+      clinicalUpdate
+    });
+    const context = {
+      ...preparation.context,
+      confirmacionProfesional: professionalConfirmation
+    };
+
+    confirmReportGenerationButton.disabled = true;
+    confirmReportGenerationButton.textContent = "Generando...";
+    reportPreparationStatus.textContent = "Gemini está redactando el borrador con tus decisiones clínicas...";
     const idToken = await user.getIdToken();
     const response = await fetch("/api/generate-report", {
       method: "POST",
@@ -1526,25 +1673,23 @@ generatePiatRevisionButton.addEventListener("click", async () => {
     }
     if (!response.ok) throw new Error(generatedReport.error || "No se ha podido generar el informe.");
 
+    const patientRef = doc(db, "patients", preparation.patientId);
     const reportRef = doc(collection(patientRef, "reports"));
     const reportData = {
       schemaVersion: SCHEMA_VERSION,
       userId: user.uid,
-      patientId,
+      patientId: preparation.patientId,
       tipo: REPORT_TYPE.PIAT_REVISION,
       estado: REPORT_STATUS.DRAFT,
       titulo: generatedReport.titulo,
       secciones: generatedReport.secciones,
       version: 1,
-      fuente: {
-        fichaActualizadaAt: timestampToIso(currentPatientData.ultimaActualizacion),
-        documentIds: documentsSnapshot.docs.map((snapshot) => snapshot.id),
-        analysisIds: analysesSnapshot.docs.map((snapshot) => snapshot.id),
-        revisionIds: revisionsSnapshot.docs.map((snapshot) => snapshot.id)
-      },
+      fuente: preparation.source,
+      confirmacionProfesional: professionalConfirmation,
       privacidad: {
         identificadoresDirectosEnviados: false,
-        contextoMinimizado: true
+        contextoMinimizado: true,
+        notasClinicasConfirmadas: true
       },
       generadoPor: "gemini",
       fechaGeneracionCliente: new Date().toISOString(),
@@ -1562,6 +1707,7 @@ generatePiatRevisionButton.addEventListener("click", async () => {
         ultimaActualizacion: serverTimestamp()
       });
     });
+    currentReportPreparation = null;
     renderReportEditor(reportRef.id, {
       ...reportData,
       fechaCreacion: new Date().toISOString(),
@@ -1569,10 +1715,10 @@ generatePiatRevisionButton.addEventListener("click", async () => {
     });
   } catch (error) {
     console.error("Error generando PIAT de revisión:", error);
-    patientReportsStatus.textContent = error.message || "No se ha podido generar el informe.";
+    reportPreparationStatus.textContent = error.message || "No se ha podido generar el informe.";
   } finally {
-    generatePiatRevisionButton.disabled = false;
-    generatePiatRevisionButton.textContent = "+ Generar PIAT de revisión";
+    confirmReportGenerationButton.disabled = false;
+    confirmReportGenerationButton.textContent = "Generar borrador";
   }
 });
 

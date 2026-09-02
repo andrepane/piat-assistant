@@ -2,7 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildProfessionalConfirmation,
   buildPiatRevisionContext,
+  getPreviousPiatObjectives,
   hasExpectedReportShape,
   minimizeClinicalData,
   PIAT_REVISION_SECTIONS
@@ -13,10 +15,10 @@ test("minimiza la ficha y excluye identificadores directos y evidencia", () => {
     identificacion: {
       fecha_nacimiento: { valor: "01/01/2020", evidencia: "Fecha exacta" },
       edad: { valor: "6 años", confianza: "alta", evidencia: "Edad" },
-      nombre: { valor: "Paciente" }
+      nombre: { valor: "IDENTIFICADOR_PRIVADO_DE_PRUEBA" }
     },
-    escolarizacion: { centro: { valor: "Colegio identificable" }, curso: { valor: "Infantil" } },
-    apoyo_profesional: { profesionales: ["Nombre identificable"], intervenciones_externas: ["Logopedia"] }
+    escolarizacion: { centro: { valor: "CENTRO_PRIVADO_DE_PRUEBA" }, curso: { valor: "Infantil" } },
+    apoyo_profesional: { profesionales: ["PROFESIONAL_PRIVADO_DE_PRUEBA"], intervenciones_externas: ["Logopedia"] }
   });
 
   assert.equal(result.identificacion.fecha_nacimiento, undefined);
@@ -31,17 +33,17 @@ test("minimiza la ficha y excluye identificadores directos y evidencia", () => {
 test("construye contexto longitudinal sin nombres de archivos", () => {
   const context = buildPiatRevisionContext({
     clinicalRecord: { familia: { prioridades: { valor: "Comunicación" } } },
-    documents: [{ id: "doc-1", nombreOriginal: "Nombre real.pdf", tipo: "piat_revision", fechaDocumento: "2026-08-01" }],
+    documents: [{ id: "doc-1", nombreOriginal: "ARCHIVO_PRIVADO.pdf", tipo: "piat_revision", fechaDocumento: "2026-08-01" }],
     analyses: [{
       documentId: "doc-1",
       extraccionRevisada: {
-        identificacion: { nombre: { valor: "Nombre real" }, edad: { valor: "5 años", evidencia: "Edad" } },
+        identificacion: { nombre: { valor: "IDENTIFICADOR_PRIVADO_DE_PRUEBA" }, edad: { valor: "5 años", evidencia: "Edad" } },
         evaluaciones: [{ prueba: "Battelle", resultado: "Comunicación por debajo de lo esperado" }]
       }
     }],
     revisions: [{ tipoEvento: "revision_manual", cambios: [
       { ruta: "familia.prioridades", valorNuevo: "Lenguaje" },
-      { ruta: "identificacion.nombre", valorNuevo: "Nombre real" }
+      { ruta: "identificacion.nombre", valorNuevo: "IDENTIFICADOR_PRIVADO_DE_PRUEBA" }
     ] }]
   });
 
@@ -51,7 +53,7 @@ test("construye contexto longitudinal sin nombres de archivos", () => {
   assert.equal(context.documentos[0].informacionExtraida.identificacion.nombre, undefined);
   assert.equal(context.documentos[0].informacionExtraida.evaluaciones[0].prueba, "Battelle");
   assert.equal(context.evolucion.length, 1);
-  assert.equal(JSON.stringify(context).includes("Nombre real"), false);
+  assert.equal(JSON.stringify(context).includes("IDENTIFICADOR_PRIVADO_DE_PRUEBA"), false);
 });
 
 test("enlaza cada documento con su extracción revisada y no con la original", () => {
@@ -95,4 +97,45 @@ test("valida que Gemini devuelva todas las secciones en orden", () => {
   };
   assert.equal(hasExpectedReportShape(valid), true);
   assert.equal(hasExpectedReportShape({ ...valid, secciones: valid.secciones.slice(1) }), false);
+});
+
+test("recupera los objetivos del PIAT anterior más reciente", () => {
+  const context = {
+    fichaActual: { objetivos: { actuales: ["Objetivo consolidado antiguo"] } },
+    documentos: [
+      { tipo: "piat_inicial", informacionExtraida: { objetivos: { actuales: ["Objetivo inicial"] } } },
+      { tipo: "evaluacion", informacionExtraida: { objetivos: { actuales: ["No usar"] } } },
+      {
+        tipo: "piat_revision",
+        informacionExtraida: {
+          objetivos: { actuales: [{ valor: "Mejorar la comunicación funcional." }, "Potenciar la atención."] }
+        }
+      }
+    ]
+  };
+  assert.deepEqual(getPreviousPiatObjectives(context), [
+    "Mejorar la comunicación funcional.",
+    "Potenciar la atención."
+  ]);
+});
+
+test("la confirmación profesional exige clasificar todos los objetivos", () => {
+  assert.throws(
+    () => buildProfessionalConfirmation({ objectiveReviews: [{ text: "Objetivo", status: "" }] }),
+    /deben estar clasificados/
+  );
+  assert.deepEqual(buildProfessionalConfirmation({
+    objectiveReviews: [
+      { text: "Objetivo uno", status: "conseguido" },
+      { text: "Objetivo dos", status: "descartado" }
+    ],
+    clinicalUpdate: { comunicacion_lenguaje: "Utiliza frases de tres elementos.", autonomia: "" }
+  }), {
+    objetivosAnteriores: [
+      { texto: "Objetivo uno", clasificacion: "conseguido" },
+      { texto: "Objetivo dos", clasificacion: "descartado" }
+    ],
+    actualizacionClinica: { comunicacion_lenguaje: "Utiliza frases de tres elementos." },
+    confirmadoPorProfesional: true
+  });
 });

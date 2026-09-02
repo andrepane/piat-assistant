@@ -6,6 +6,21 @@ export const REPORT_STATUS = Object.freeze({
   DRAFT: "borrador"
 });
 
+export const OBJECTIVE_REVIEW_STATUS = Object.freeze({
+  ACHIEVED: "conseguido",
+  IN_PROGRESS: "en_proceso",
+  DISCARDED: "descartado"
+});
+
+export const CLINICAL_UPDATE_FIELDS = Object.freeze([
+  ["comunicacion_lenguaje", "Comunicación y lenguaje"],
+  ["atencion_aprendizaje", "Atención y aprendizaje"],
+  ["conducta_interaccion", "Conducta e interacción"],
+  ["autonomia", "Autonomía"],
+  ["familia_entorno", "Familia y entorno"],
+  ["salud_escolarizacion", "Cambios de salud o escolarización"]
+]);
+
 export const PIAT_REVISION_SECTIONS = Object.freeze([
   ["informacion_diagnostica_y_medica", "Información diagnóstica y médica"],
   ["antecedentes_personales", "Antecedentes personales"],
@@ -53,6 +68,53 @@ function isExtractedField(value) {
     value && typeof value === "object" && !Array.isArray(value) &&
     Object.prototype.hasOwnProperty.call(value, "valor")
   );
+}
+
+function collectObjectiveTexts(value, result = []) {
+  if (isExtractedField(value)) return collectObjectiveTexts(value.valor, result);
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectObjectiveTexts(item, result));
+    return result;
+  }
+  if (value && typeof value === "object") {
+    Object.values(value).forEach((item) => collectObjectiveTexts(item, result));
+    return result;
+  }
+  const text = typeof value === "string" ? value.trim().replace(/^[-•]\s*/, "") : "";
+  if (text && !result.includes(text)) result.push(text);
+  return result;
+}
+
+export function getPreviousPiatObjectives(context) {
+  const previousPiat = [...(context?.documentos || [])]
+    .reverse()
+    .find((documentData) =>
+      ["piat_inicial", "piat_revision"].includes(documentData.tipo) &&
+      documentData.informacionExtraida?.objetivos
+    );
+  const objectives = previousPiat?.informacionExtraida?.objetivos;
+  const candidates = collectObjectiveTexts(objectives?.actuales);
+  if (candidates.length > 0) return candidates;
+  return collectObjectiveTexts(context?.fichaActual?.objetivos?.actuales);
+}
+
+export function buildProfessionalConfirmation({ objectiveReviews = [], clinicalUpdate = {} }) {
+  const allowedStatuses = new Set(Object.values(OBJECTIVE_REVIEW_STATUS));
+  const objectives = objectiveReviews.map(({ text, status }) => ({
+    texto: String(text || "").trim(),
+    clasificacion: String(status || "")
+  }));
+  if (objectives.some((item) => !item.texto || !allowedStatuses.has(item.clasificacion))) {
+    throw new Error("Todos los objetivos anteriores deben estar clasificados.");
+  }
+  return {
+    objetivosAnteriores: objectives,
+    actualizacionClinica: Object.fromEntries(
+      CLINICAL_UPDATE_FIELDS.map(([id]) => [id, String(clinicalUpdate[id] || "").trim()])
+        .filter(([, value]) => value)
+    ),
+    confirmadoPorProfesional: true
+  };
 }
 
 function routeContainsIdentifier(route) {

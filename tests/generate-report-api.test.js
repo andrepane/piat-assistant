@@ -55,7 +55,9 @@ test("el prompt aplica modelos anonimizados sin reutilizar sus hechos clínicos"
   assert.match(prompt, /nunca copies sus hechos clínicos/i);
   assert.match(prompt, /No conviertas la ausencia de un dato en una negación clínica/i);
   assert.match(prompt, /Afirmar evolución favorable solo porque sube la PD/i);
+  assert.match(prompt, /clasificación incluida en confirmacionProfesional.+es vinculante/i);
+  assert.match(prompt, /No deduzcas conductas observadas a partir de objetivos/i);
   assert.equal((prompt.match(/MODELO DE ESTILO/g) || []).length, PIAT_REVISION_SECTIONS.length);
-  assert.doesNotMatch(prompt, /Alejandro|Andrea Panepinto|Neurointegra|2318/);
+  assert.doesNotMatch(prompt, /IDENTIFICADOR_PRIVADO_DE_PRUEBA/);
   assert.ok(buildPiatRevisionWritingGuide(PIAT_REVISION_SECTIONS).length > 1000);
 });

@@ -139,6 +139,8 @@ REGLAS COMUNES OBLIGATORIAS:
 - Distingue la situación del PIAT anterior de la documentación posterior.
 - No conviertas la ausencia de un dato en una negación clínica.
 - Solo clasifica un objetivo como conseguido si era anterior y existe evidencia posterior explícita.
+- La clasificación incluida en confirmacionProfesional.objetivosAnteriores es vinculante: no reclasifiques objetivos, no incluyas los descartados y no inventes otros objetivos anteriores.
+- Usa confirmacionProfesional.actualizacionClinica como fuente prioritaria del funcionamiento actual. No deduzcas conductas observadas a partir de objetivos ni puntuaciones estandarizadas.
 - Imita la organización y el registro de los modelos, pero nunca copies sus hechos clínicos.
 - No menciones el contexto, las fuentes, Gemini ni el proceso de generación.
 - Si falta información, escribe exactamente: "Sin información suficiente para redactar esta sección."
