@@ -3,7 +3,9 @@ import assert from "node:assert/strict";
 
 import {
   buildProfessionalConfirmation,
+  buildPiatRevisionBatchContext,
   buildPiatRevisionContext,
+  getClinicalContextMetrics,
   getPreviousPiatObjectives,
   getReportResponseErrorMessage,
   getReportSectionsByIds,
@@ -121,6 +123,71 @@ test("valida una respuesta parcial y rechaza lotes desconocidos o desordenados",
   assert.equal(hasExpectedReportShape(partial, sectionEntries), true);
   assert.equal(getReportSectionsByIds(["desconocida"]), null);
   assert.equal(getReportSectionsByIds([...PIAT_REVISION_GENERATION_BATCHES[0]].reverse()), null);
+});
+
+test("selecciona para cada bloque solo las áreas clínicas pertinentes", () => {
+  const context = {
+    fichaActual: {
+      diagnostico: { principal: "Retraso del lenguaje" },
+      salud: { seguimiento: "Pediatría" },
+      evaluaciones: [{ prueba: "Battelle" }],
+      objetivos: { actuales: ["Mejorar comprensión"] }
+    },
+    documentos: [{
+      tipo: "piat_revision",
+      fechaDocumento: "2026-01-01",
+      informacionExtraida: {
+        diagnostico: { principal: "Retraso del lenguaje" },
+        salud: { seguimiento: "Pediatría" },
+        evaluaciones: [{ prueba: "Battelle antigua" }],
+        objetivos: { actuales: ["Objetivo anterior"] }
+      }
+    }],
+    evolucion: [{
+      tipo: "revision_manual",
+      fecha: "2026-02-01",
+      cambios: [
+        { ruta: "salud.seguimiento", valorNuevo: "Neuropediatría" },
+        { ruta: "objetivos.actuales", valorNuevo: ["Objetivo nuevo"] }
+      ]
+    }],
+    confirmacionProfesional: { confirmadoPorProfesional: true }
+  };
+  const compact = buildPiatRevisionBatchContext(
+    context,
+    PIAT_REVISION_GENERATION_BATCHES[0]
+  );
+  assert.equal(compact.fichaActual.diagnostico.principal, "Retraso del lenguaje");
+  assert.equal(compact.fichaActual.evaluaciones, undefined);
+  assert.equal(compact.documentos[0].informacionExtraida.objetivos, undefined);
+  assert.equal(compact.evolucion.length, 1);
+  assert.equal(compact.evolucion[0].cambios.length, 1);
+  assert.equal(compact.confirmacionProfesional.confirmadoPorProfesional, true);
+});
+
+test("elimina documentos clínicos idénticos del contexto del bloque y calcula su reducción", () => {
+  const duplicate = {
+    tipo: "evaluacion",
+    fechaDocumento: "2026-08-01",
+    informacionExtraida: {
+      evaluaciones: [{ prueba: "Battelle", resultado: "Resultado estructurado" }],
+      diagnostico: { principal: "No pertinente para este bloque" }
+    }
+  };
+  const context = {
+    fichaActual: { evaluaciones: [{ prueba: "Battelle" }], familia: { prioridades: "Lenguaje" } },
+    documentos: [duplicate, structuredClone(duplicate)],
+    evolucion: [],
+    confirmacionProfesional: { confirmadoPorProfesional: true }
+  };
+  const sectionIds = PIAT_REVISION_GENERATION_BATCHES[1];
+  const compact = buildPiatRevisionBatchContext(context, sectionIds);
+  const metrics = getClinicalContextMetrics(context, sectionIds);
+  assert.equal(compact.documentos.length, 1);
+  assert.equal(compact.documentos[0].informacionExtraida.diagnostico, undefined);
+  assert.ok(metrics.compactCharacters < metrics.fullCharacters);
+  assert.ok(metrics.approximateTokens > 0);
+  assert.ok(metrics.reductionPercent > 0);
 });
 
 test("recupera los objetivos del PIAT anterior más reciente", () => {

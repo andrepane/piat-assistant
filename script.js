@@ -51,6 +51,7 @@ import {
 } from "./src/docx-anonymizer.js";
 import {
   buildProfessionalConfirmation,
+  getClinicalContextMetrics,
   buildPiatRevisionContext,
   CLINICAL_UPDATE_FIELDS,
   getPreviousPiatObjectives,
@@ -1674,9 +1675,16 @@ reportPreparationForm.addEventListener("submit", async (event) => {
     ) {
       const currentBatch = batchIndex + 1;
       const batchCount = PIAT_REVISION_GENERATION_BATCHES.length;
+      const contextMetrics = getClinicalContextMetrics(
+        context,
+        PIAT_REVISION_GENERATION_BATCHES[batchIndex]
+      );
+      const contextKilobytes = Math.max(1, Math.round(contextMetrics.compactCharacters / 1024));
       confirmReportGenerationButton.textContent = `Generando ${currentBatch}/${batchCount}...`;
       reportPreparationStatus.textContent =
-        `Gemini está redactando el bloque ${currentBatch} de ${batchCount}. No cierres esta página...`;
+        `Gemini está redactando el bloque ${currentBatch} de ${batchCount} ` +
+        `con ${contextKilobytes} KB de contexto clínico (${contextMetrics.reductionPercent}% menos). ` +
+        "No cierres esta página...";
       const response = await fetch("/api/generate-report", {
         method: "POST",
         headers: {

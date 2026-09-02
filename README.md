@@ -90,6 +90,9 @@ La interfaz muestra el bloque en curso, une las 19 secciones en su orden origina
 bloques ya completados si una llamada falla, por lo que el siguiente intento continúa desde ese punto.
 Cada bloque usa razonamiento mínimo, salida limitada y un esquema JSON estricto para dedicar el tiempo
 a la redacción clínica solicitada y evitar respuestas innecesariamente largas o mal estructuradas.
+Antes de cada llamada se seleccionan únicamente las áreas clínicas necesarias para sus apartados,
+se excluyen revisiones no relacionadas y se eliminan documentos exactamente duplicados. La interfaz
+muestra el tamaño real del contexto del bloque y el porcentaje reducido respecto al contexto completo.
 
 ## Reglas de Firestore
 
