@@ -21,6 +21,16 @@ export const CLINICAL_UPDATE_FIELDS = Object.freeze([
   ["salud_escolarizacion", "Cambios de salud o escolarización"]
 ]);
 
+export function getReportResponseErrorMessage(status) {
+  if (status === 504) {
+    return "La generación ha tardado demasiado. Tus datos siguen preparados; vuelve a pulsar Generar borrador.";
+  }
+  if (status === 502 || status === 503) {
+    return "Gemini está temporalmente saturado. Vuelve a intentarlo dentro de unos minutos.";
+  }
+  return "El servidor no ha podido generar el informe.";
+}
+
 export const PIAT_REVISION_SECTIONS = Object.freeze([
   ["informacion_diagnostica_y_medica", "Información diagnóstica y médica"],
   ["antecedentes_personales", "Antecedentes personales"],
