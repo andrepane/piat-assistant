@@ -63,12 +63,14 @@ export const PIAT_REVISION_GENERATION_BATCHES = Object.freeze([
   ]),
   Object.freeze([
     "aspectos_biopsicosociales",
-    "red_apoyo_profesional",
-    "exploracion_pruebas",
-    "interpretacion_evolucion",
-    "exploracion_cualitativa"
+    "red_apoyo_profesional"
   ]),
   Object.freeze([
+    "exploracion_pruebas",
+    "interpretacion_evolucion"
+  ]),
+  Object.freeze([
+    "exploracion_cualitativa",
     "preocupaciones_familia",
     "objetivos_conseguidos",
     "objetivos_en_proceso",
@@ -105,11 +107,11 @@ const REPORT_SECTION_CONTEXT_KEYS = Object.freeze({
   red_apoyo_profesional: ["apoyo_profesional", "escolarizacion", "salud"],
   exploracion_pruebas: ["evaluaciones", "identificacion"],
   interpretacion_evolucion: ["evaluaciones", "desarrollo_y_contexto", "objetivos"],
-  exploracion_cualitativa: ["desarrollo_y_contexto", "evaluaciones"],
+  exploracion_cualitativa: ["desarrollo_y_contexto"],
   preocupaciones_familia: ["familia", "desarrollo_y_contexto"],
-  objetivos_conseguidos: ["objetivos", "desarrollo_y_contexto", "evaluaciones"],
-  objetivos_en_proceso: ["objetivos", "desarrollo_y_contexto", "evaluaciones"],
-  objetivos_actuales: ["objetivos", "desarrollo_y_contexto", "evaluaciones", "familia"],
+  objetivos_conseguidos: ["objetivos", "desarrollo_y_contexto"],
+  objetivos_en_proceso: ["objetivos", "desarrollo_y_contexto"],
+  objetivos_actuales: ["objetivos", "desarrollo_y_contexto", "familia"],
   familia: ["familia", "objetivos", "desarrollo_y_contexto"],
   entorno: ["escolarizacion", "objetivos", "desarrollo_y_contexto"],
   profesionales: ["apoyo_profesional", "objetivos", "salud", "escolarizacion"],
@@ -126,6 +128,16 @@ function pickContextKeys(value, allowedKeys) {
 
 function hasObjectContent(value) {
   return Boolean(value && typeof value === "object" && Object.keys(value).length > 0);
+}
+
+function stableClinicalFingerprint(value) {
+  if (Array.isArray(value)) return `[${value.map(stableClinicalFingerprint).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) =>
+      `${JSON.stringify(key)}:${stableClinicalFingerprint(value[key])}`
+    ).join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export function buildPiatRevisionBatchContext(context, sectionIds) {
@@ -156,8 +168,15 @@ export function buildPiatRevisionBatchContext(context, sectionIds) {
       allowedKeys.has(String(change?.ruta || "").split(".")[0])
     )
   })).filter((revision) => revision.cambios.length > 0);
+  const currentRecord = pickContextKeys(context?.fichaActual, allowedKeys);
+  const fichaActual = Object.fromEntries(Object.entries(currentRecord).filter(([key, value]) =>
+    !documents.some((documentData) =>
+      Object.prototype.hasOwnProperty.call(documentData.informacionExtraida, key) &&
+      stableClinicalFingerprint(documentData.informacionExtraida[key]) === stableClinicalFingerprint(value)
+    )
+  ));
   return {
-    fichaActual: pickContextKeys(context?.fichaActual, allowedKeys),
+    fichaActual,
     documentos: documents,
     evolucion,
     confirmacionProfesional: context?.confirmacionProfesional || null

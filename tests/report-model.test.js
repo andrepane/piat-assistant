@@ -114,6 +114,35 @@ test("divide la generación en bloques que cubren todas las secciones una sola v
   });
 });
 
+test("aísla las tablas de evaluación en un bloque específico", () => {
+  const evaluationBatch = PIAT_REVISION_GENERATION_BATCHES.find((ids) =>
+    ids.includes("exploracion_pruebas")
+  );
+  assert.deepEqual(evaluationBatch, ["exploracion_pruebas", "interpretacion_evolucion"]);
+  PIAT_REVISION_GENERATION_BATCHES
+    .filter((ids) => ids !== evaluationBatch)
+    .forEach((ids) => {
+      const compact = buildPiatRevisionBatchContext({
+        fichaActual: {
+          evaluaciones: [{ prueba: "Battelle", areas: [{ nombre: "Comunicación" }] }],
+          desarrollo_y_contexto: { comunicacion: "Utiliza frases" }
+        },
+        documentos: [{
+          tipo: "evaluacion",
+          informacionExtraida: {
+            evaluaciones: [{ prueba: "Battelle", areas: [{ nombre: "Comunicación" }] }],
+            desarrollo_y_contexto: { comunicacion: "Utiliza frases" }
+          }
+        }]
+      }, ids);
+      assert.equal(compact.fichaActual.evaluaciones, undefined);
+      assert.equal(
+        compact.documentos.some((item) => item.informacionExtraida.evaluaciones),
+        false
+      );
+    });
+});
+
 test("valida una respuesta parcial y rechaza lotes desconocidos o desordenados", () => {
   const sectionEntries = getReportSectionsByIds(PIAT_REVISION_GENERATION_BATCHES[0]);
   const partial = {
@@ -157,7 +186,11 @@ test("selecciona para cada bloque solo las áreas clínicas pertinentes", () => 
     context,
     PIAT_REVISION_GENERATION_BATCHES[0]
   );
-  assert.equal(compact.fichaActual.diagnostico.principal, "Retraso del lenguaje");
+  assert.equal(compact.fichaActual.diagnostico, undefined);
+  assert.equal(
+    compact.documentos[0].informacionExtraida.diagnostico.principal,
+    "Retraso del lenguaje"
+  );
   assert.equal(compact.fichaActual.evaluaciones, undefined);
   assert.equal(compact.documentos[0].informacionExtraida.objetivos, undefined);
   assert.equal(compact.evolucion.length, 1);
@@ -180,7 +213,9 @@ test("elimina documentos clínicos idénticos del contexto del bloque y calcula 
     evolucion: [],
     confirmacionProfesional: { confirmadoPorProfesional: true }
   };
-  const sectionIds = PIAT_REVISION_GENERATION_BATCHES[1];
+  const sectionIds = PIAT_REVISION_GENERATION_BATCHES.find((ids) =>
+    ids.includes("exploracion_pruebas")
+  );
   const compact = buildPiatRevisionBatchContext(context, sectionIds);
   const metrics = getClinicalContextMetrics(context, sectionIds);
   assert.equal(compact.documentos.length, 1);
@@ -188,6 +223,31 @@ test("elimina documentos clínicos idénticos del contexto del bloque y calcula 
   assert.ok(metrics.compactCharacters < metrics.fullCharacters);
   assert.ok(metrics.approximateTokens > 0);
   assert.ok(metrics.reductionPercent > 0);
+});
+
+test("no repite en la ficha una evaluación ya incluida en su documento", () => {
+  const evaluation = [{
+    nombre_prueba: "Battelle",
+    areas: [{ nombre: "Comunicación", puntuacion_directa: "42" }]
+  }];
+  const sectionIds = PIAT_REVISION_GENERATION_BATCHES.find((ids) =>
+    ids.includes("exploracion_pruebas")
+  );
+  const compact = buildPiatRevisionBatchContext({
+    fichaActual: { evaluaciones: evaluation, objetivos: { actuales: ["Objetivo vigente"] } },
+    documentos: [{
+      tipo: "evaluacion",
+      fechaDocumento: "2026-08-01",
+      informacionExtraida: {
+        evaluaciones: [{
+          areas: [{ puntuacion_directa: "42", nombre: "Comunicación" }],
+          nombre_prueba: "Battelle"
+        }]
+      }
+    }]
+  }, sectionIds);
+  assert.equal(compact.fichaActual.evaluaciones, undefined);
+  assert.equal(compact.documentos[0].informacionExtraida.evaluaciones[0].nombre_prueba, "Battelle");
 });
 
 test("recupera los objetivos del PIAT anterior más reciente", () => {

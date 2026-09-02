@@ -93,6 +93,10 @@ a la redacción clínica solicitada y evitar respuestas innecesariamente largas 
 Antes de cada llamada se seleccionan únicamente las áreas clínicas necesarias para sus apartados,
 se excluyen revisiones no relacionadas y se eliminan documentos exactamente duplicados. La interfaz
 muestra el tamaño real del contexto del bloque y el porcentaje reducido respecto al contexto completo.
+Las tablas completas de evaluaciones se reservan para un bloque independiente de exploración y
+evolución; no se repiten en la redacción cualitativa, los objetivos ni las actuaciones.
+Si una evaluación consolidada de la ficha coincide con la ya incluida en un documento, se envía una
+sola vez desde el documento para conservar su fecha y evitar duplicar toda la tabla.
 
 ## Reglas de Firestore
 
