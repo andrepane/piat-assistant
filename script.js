@@ -56,6 +56,7 @@ import {
   getPreviousPiatObjectives,
   getReportResponseErrorMessage,
   OBJECTIVE_REVIEW_STATUS,
+  PIAT_REVISION_GENERATION_BATCHES,
   PIAT_REVISION_SECTIONS,
   REPORT_STATUS,
   REPORT_TYPE
@@ -1655,29 +1656,60 @@ reportPreparationForm.addEventListener("submit", async (event) => {
 
     confirmReportGenerationButton.disabled = true;
     confirmReportGenerationButton.textContent = "Generando...";
-    reportPreparationStatus.textContent = "Gemini está redactando el borrador con tus decisiones clínicas...";
     const idToken = await user.getIdToken();
-    const response = await fetch("/api/generate-report", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${idToken}`
-      },
-      body: JSON.stringify({ type: REPORT_TYPE.PIAT_REVISION, context })
-    });
-    const responseText = await response.text();
-    let generatedReport = null;
-    try {
-      generatedReport = JSON.parse(responseText);
-    } catch {
-      // Vercel puede devolver HTML cuando interrumpe una función por tiempo agotado.
+    const generationSignature = JSON.stringify(professionalConfirmation);
+    if (preparation.generationProgress?.signature !== generationSignature) {
+      preparation.generationProgress = {
+        signature: generationSignature,
+        nextBatchIndex: 0,
+        title: "",
+        sections: []
+      };
     }
-    if (!response.ok) {
-      throw new Error(generatedReport?.error || getReportResponseErrorMessage(response.status));
+    const progress = preparation.generationProgress;
+    for (
+      let batchIndex = progress.nextBatchIndex;
+      batchIndex < PIAT_REVISION_GENERATION_BATCHES.length;
+      batchIndex += 1
+    ) {
+      const currentBatch = batchIndex + 1;
+      const batchCount = PIAT_REVISION_GENERATION_BATCHES.length;
+      confirmReportGenerationButton.textContent = `Generando ${currentBatch}/${batchCount}...`;
+      reportPreparationStatus.textContent =
+        `Gemini está redactando el bloque ${currentBatch} de ${batchCount}. No cierres esta página...`;
+      const response = await fetch("/api/generate-report", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`
+        },
+        body: JSON.stringify({
+          type: REPORT_TYPE.PIAT_REVISION,
+          context,
+          sectionIds: PIAT_REVISION_GENERATION_BATCHES[batchIndex]
+        })
+      });
+      const responseText = await response.text();
+      let generatedBatch = null;
+      try {
+        generatedBatch = JSON.parse(responseText);
+      } catch {
+        // Vercel puede devolver HTML cuando interrumpe una función por tiempo agotado.
+      }
+      if (!response.ok) {
+        throw new Error(generatedBatch?.error || getReportResponseErrorMessage(response.status));
+      }
+      if (!generatedBatch?.titulo || !Array.isArray(generatedBatch.secciones)) {
+        throw new Error("El servidor devolvió un bloque de informe no válido.");
+      }
+      progress.title ||= generatedBatch.titulo;
+      progress.sections.push(...generatedBatch.secciones);
+      progress.nextBatchIndex = currentBatch;
     }
-    if (!generatedReport) {
-      throw new Error("El servidor devolvió una respuesta de informe no válida.");
-    }
+    const generatedReport = {
+      titulo: progress.title,
+      secciones: progress.sections
+    };
 
     const patientRef = doc(db, "patients", preparation.patientId);
     const reportRef = doc(collection(patientRef, "reports"));

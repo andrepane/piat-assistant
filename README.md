@@ -85,6 +85,9 @@ El endpoint exige un ID token válido de Firebase Authentication y nunca recibe 
 usuario.
 La función de generación dispone de 60 segundos en Vercel y cancela internamente la llamada a
 Gemini antes de ese límite para devolver un error legible sin perder la preparación clínica.
+El borrador completo se genera en cuatro bloques clínicos consecutivos de cuatro o cinco apartados.
+La interfaz muestra el bloque en curso, une las 19 secciones en su orden original y conserva los
+bloques ya completados si una llamada falla, por lo que el siguiente intento continúa desde ese punto.
 
 ## Reglas de Firestore
 

@@ -1,7 +1,7 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import {
   hasExpectedReportShape,
-  PIAT_REVISION_SECTIONS,
+  getReportSectionsByIds,
   REPORT_TYPE
 } from "../src/report-model.js";
 import { buildPiatRevisionReportPrompt } from "../src/report-writing-guides.js";
@@ -36,8 +36,9 @@ async function authenticateRequest(req) {
   }
 }
 
-export function isSupportedReportRequest(type, context) {
+export function isSupportedReportRequest(type, context, sectionIds) {
   if (type !== REPORT_TYPE.PIAT_REVISION || !context || typeof context !== "object") return false;
+  if (!getReportSectionsByIds(sectionIds)) return false;
   const serialized = JSON.stringify(context);
   return serialized.length > 2 && serialized.length <= MAX_CONTEXT_LENGTH;
 }
@@ -116,20 +117,21 @@ export default async function handler(req, res) {
     if (!(await authenticateRequest(req))) {
       return res.status(401).json({ error: "Sesión no válida o caducada" });
     }
-    const { type, context } = req.body || {};
-    if (!isSupportedReportRequest(type, context)) {
+    const { type, context, sectionIds } = req.body || {};
+    if (!isSupportedReportRequest(type, context, sectionIds)) {
       return res.status(400).json({ error: "Los datos del informe no son válidos" });
     }
     if (!process.env.GEMINI_API_KEY) {
       return res.status(500).json({ error: "El servicio de generación no está configurado" });
     }
 
-    const sectionSchema = PIAT_REVISION_SECTIONS.map(([id, titulo]) => ({
+    const sectionEntries = getReportSectionsByIds(sectionIds);
+    const sectionSchema = sectionEntries.map(([id, titulo]) => ({
       id,
       titulo,
       contenido: ""
     }));
-    const prompt = buildPiatRevisionReportPrompt(PIAT_REVISION_SECTIONS, sectionSchema);
+    const prompt = buildPiatRevisionReportPrompt(sectionEntries, sectionSchema);
 
     const response = await requestGeminiReport(JSON.stringify({
       contents: [{ parts: [
@@ -157,7 +159,7 @@ export default async function handler(req, res) {
     } catch {
       return res.status(502).json({ error: "Gemini devolvió un informe no válido" });
     }
-    if (!hasExpectedReportShape(report)) {
+    if (!hasExpectedReportShape(report, sectionEntries)) {
       return res.status(502).json({ error: "Gemini devolvió una estructura de informe inesperada" });
     }
     return res.status(200).json(report);

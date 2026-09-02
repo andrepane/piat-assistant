@@ -6,7 +6,10 @@ import {
   isRetryableGeminiStatus,
   isSupportedReportRequest
 } from "../api/generate-report.js";
-import { PIAT_REVISION_SECTIONS } from "../src/report-model.js";
+import {
+  PIAT_REVISION_GENERATION_BATCHES,
+  PIAT_REVISION_SECTIONS
+} from "../src/report-model.js";
 import {
   buildPiatRevisionReportPrompt,
   buildPiatRevisionWritingGuide,
@@ -14,9 +17,12 @@ import {
 } from "../src/report-writing-guides.js";
 
 test("solo admite PIAT de revisión con contexto clínico", () => {
-  assert.equal(isSupportedReportRequest("piat_revision", { fichaActual: {} }), true);
-  assert.equal(isSupportedReportRequest("informe_escolar", { fichaActual: {} }), false);
-  assert.equal(isSupportedReportRequest("piat_revision", null), false);
+  const batch = PIAT_REVISION_GENERATION_BATCHES[0];
+  assert.equal(isSupportedReportRequest("piat_revision", { fichaActual: {} }, batch), true);
+  assert.equal(isSupportedReportRequest("informe_escolar", { fichaActual: {} }, batch), false);
+  assert.equal(isSupportedReportRequest("piat_revision", null, batch), false);
+  assert.equal(isSupportedReportRequest("piat_revision", { fichaActual: {} }), false);
+  assert.equal(isSupportedReportRequest("piat_revision", { fichaActual: {} }, ["desconocida"]), false);
 });
 
 test("identifica los errores temporales de Gemini que admiten reintento", () => {
