@@ -6,8 +6,10 @@ import {
   buildPiatRevisionContext,
   getPreviousPiatObjectives,
   getReportResponseErrorMessage,
+  getReportSectionsByIds,
   hasExpectedReportShape,
   minimizeClinicalData,
+  PIAT_REVISION_GENERATION_BATCHES,
   PIAT_REVISION_SECTIONS
 } from "../src/report-model.js";
 
@@ -98,6 +100,27 @@ test("valida que Gemini devuelva todas las secciones en orden", () => {
   };
   assert.equal(hasExpectedReportShape(valid), true);
   assert.equal(hasExpectedReportShape({ ...valid, secciones: valid.secciones.slice(1) }), false);
+});
+
+test("divide la generación en bloques que cubren todas las secciones una sola vez", () => {
+  const flattenedIds = PIAT_REVISION_GENERATION_BATCHES.flat();
+  assert.deepEqual(flattenedIds, PIAT_REVISION_SECTIONS.map(([id]) => id));
+  assert.equal(new Set(flattenedIds).size, PIAT_REVISION_SECTIONS.length);
+  PIAT_REVISION_GENERATION_BATCHES.forEach((ids) => {
+    assert.ok(ids.length > 0 && ids.length <= 5);
+    assert.deepEqual(getReportSectionsByIds(ids).map(([id]) => id), ids);
+  });
+});
+
+test("valida una respuesta parcial y rechaza lotes desconocidos o desordenados", () => {
+  const sectionEntries = getReportSectionsByIds(PIAT_REVISION_GENERATION_BATCHES[0]);
+  const partial = {
+    titulo: "PIAT",
+    secciones: sectionEntries.map(([id, titulo]) => ({ id, titulo, contenido: "Texto" }))
+  };
+  assert.equal(hasExpectedReportShape(partial, sectionEntries), true);
+  assert.equal(getReportSectionsByIds(["desconocida"]), null);
+  assert.equal(getReportSectionsByIds([...PIAT_REVISION_GENERATION_BATCHES[0]].reverse()), null);
 });
 
 test("recupera los objetivos del PIAT anterior más reciente", () => {

@@ -53,6 +53,48 @@ export const PIAT_REVISION_SECTIONS = Object.freeze([
   ["materiales_recursos", "Materiales y recursos"]
 ]);
 
+export const PIAT_REVISION_GENERATION_BATCHES = Object.freeze([
+  Object.freeze([
+    "informacion_diagnostica_y_medica",
+    "antecedentes_personales",
+    "antecedentes_familiares",
+    "otros_datos_salud",
+    "datos_escolarizacion"
+  ]),
+  Object.freeze([
+    "aspectos_biopsicosociales",
+    "red_apoyo_profesional",
+    "exploracion_pruebas",
+    "interpretacion_evolucion",
+    "exploracion_cualitativa"
+  ]),
+  Object.freeze([
+    "preocupaciones_familia",
+    "objetivos_conseguidos",
+    "objetivos_en_proceso",
+    "objetivos_actuales"
+  ]),
+  Object.freeze([
+    "familia",
+    "entorno",
+    "profesionales",
+    "sesiones_pautadas",
+    "materiales_recursos"
+  ])
+]);
+
+export function getReportSectionsByIds(sectionIds) {
+  if (!Array.isArray(sectionIds) || sectionIds.length === 0 || sectionIds.length > 5) return null;
+  const requestedIds = new Set(sectionIds);
+  if (requestedIds.size !== sectionIds.length) return null;
+  const sections = PIAT_REVISION_SECTIONS.filter(([id]) => requestedIds.has(id));
+  if (
+    sections.length !== sectionIds.length ||
+    sections.some(([id], index) => id !== sectionIds[index])
+  ) return null;
+  return sections;
+}
+
 const OMITTED_KEYS = new Set([
   "nombre",
   "apellidos",
@@ -198,7 +240,7 @@ export function buildPiatRevisionContext({
   };
 }
 
-export function hasExpectedReportShape(value) {
+export function hasExpectedReportShape(value, sectionEntries = PIAT_REVISION_SECTIONS) {
   if (
     !value ||
     typeof value !== "object" ||
@@ -206,7 +248,7 @@ export function hasExpectedReportShape(value) {
     !value.titulo.trim() ||
     !Array.isArray(value.secciones)
   ) return false;
-  const expectedIds = PIAT_REVISION_SECTIONS.map(([id]) => id);
+  const expectedIds = sectionEntries.map(([id]) => id);
   return value.secciones.length === expectedIds.length && value.secciones.every(
     (section, index) =>
       section?.id === expectedIds[index] &&
