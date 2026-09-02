@@ -88,6 +88,8 @@ Gemini antes de ese límite para devolver un error legible sin perder la prepara
 El borrador completo se genera en cuatro bloques clínicos consecutivos de cuatro o cinco apartados.
 La interfaz muestra el bloque en curso, une las 19 secciones en su orden original y conserva los
 bloques ya completados si una llamada falla, por lo que el siguiente intento continúa desde ese punto.
+Cada bloque usa razonamiento mínimo, salida limitada y un esquema JSON estricto para dedicar el tiempo
+a la redacción clínica solicitada y evitar respuestas innecesariamente largas o mal estructuradas.
 
 ## Reglas de Firestore
 

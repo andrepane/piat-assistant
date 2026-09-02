@@ -12,6 +12,7 @@ const GEMINI_REPORT_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_REQUEST_TIMEOUT_MS = 50000;
+const GEMINI_REPORT_MAX_OUTPUT_TOKENS = 4096;
 const FIREBASE_JWKS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
 );
@@ -73,6 +74,36 @@ export function getGeminiReportError(status) {
     status: 502,
     code: "GEMINI_REQUEST_FAILED",
     error: "Gemini ha rechazado la generación del informe. Inténtalo de nuevo."
+  };
+}
+
+export function buildGeminiGenerationConfig(sectionEntries) {
+  return {
+    responseMimeType: "application/json",
+    responseJsonSchema: {
+      type: "object",
+      required: ["titulo", "secciones"],
+      properties: {
+        titulo: { type: "string" },
+        secciones: {
+          type: "array",
+          minItems: sectionEntries.length,
+          maxItems: sectionEntries.length,
+          items: {
+            type: "object",
+            required: ["id", "titulo", "contenido"],
+            properties: {
+              id: { type: "string", enum: sectionEntries.map(([id]) => id) },
+              titulo: { type: "string" },
+              contenido: { type: "string" }
+            }
+          }
+        }
+      }
+    },
+    maxOutputTokens: GEMINI_REPORT_MAX_OUTPUT_TOKENS,
+    temperature: 0.3,
+    thinkingConfig: { thinkingLevel: "MINIMAL" }
   };
 }
 
@@ -138,7 +169,7 @@ export default async function handler(req, res) {
         { text: prompt },
         { text: `CONTEXTO CLÍNICO ANONIMIZADO:\n${JSON.stringify(context)}` }
       ] }],
-      generationConfig: { responseMimeType: "application/json" }
+      generationConfig: buildGeminiGenerationConfig(sectionEntries)
     }));
     if (!response.ok) {
       const upstreamError = await response.text();

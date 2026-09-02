@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildGeminiGenerationConfig,
   getGeminiReportError,
   isRetryableGeminiStatus,
   isSupportedReportRequest
@@ -66,4 +67,17 @@ test("el prompt aplica modelos anonimizados sin reutilizar sus hechos clínicos"
   assert.equal((prompt.match(/MODELO DE ESTILO/g) || []).length, PIAT_REVISION_SECTIONS.length);
   assert.doesNotMatch(prompt, /IDENTIFICADOR_PRIVADO_DE_PRUEBA/);
   assert.ok(buildPiatRevisionWritingGuide(PIAT_REVISION_SECTIONS).length > 1000);
+});
+
+test("limita el razonamiento y la salida de cada bloque de Gemini", () => {
+  const entries = PIAT_REVISION_SECTIONS.slice(0, 5);
+  const config = buildGeminiGenerationConfig(entries);
+  assert.equal(config.thinkingConfig.thinkingLevel, "MINIMAL");
+  assert.equal(config.maxOutputTokens, 4096);
+  assert.equal(config.temperature, 0.3);
+  assert.equal(config.responseJsonSchema.properties.secciones.minItems, entries.length);
+  assert.deepEqual(
+    config.responseJsonSchema.properties.secciones.items.properties.id.enum,
+    entries.map(([id]) => id)
+  );
 });

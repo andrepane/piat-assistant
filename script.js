@@ -1697,7 +1697,8 @@ reportPreparationForm.addEventListener("submit", async (event) => {
         // Vercel puede devolver HTML cuando interrumpe una función por tiempo agotado.
       }
       if (!response.ok) {
-        throw new Error(generatedBatch?.error || getReportResponseErrorMessage(response.status));
+        const reason = generatedBatch?.error || getReportResponseErrorMessage(response.status);
+        throw new Error(`No se ha podido completar el bloque ${currentBatch} de ${batchCount}. ${reason}`);
       }
       if (!generatedBatch?.titulo || !Array.isArray(generatedBatch.secciones)) {
         throw new Error("El servidor devolvió un bloque de informe no válido.");
