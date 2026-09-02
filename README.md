@@ -97,6 +97,9 @@ Las tablas completas de evaluaciones se reservan para un bloque independiente de
 evolución; no se repiten en la redacción cualitativa, los objetivos ni las actuaciones.
 Si una evaluación consolidada de la ficha coincide con la ya incluida en un documento, se envía una
 sola vez desde el documento para conservar su fecha y evitar duplicar toda la tabla.
+La extracción documental utiliza `gemini-3.6-flash`; la redacción por bloques utiliza
+`gemini-3.5-flash-lite`, el modelo estable de baja latencia, porque recibe información ya estructurada
+y guías clínicas específicas y debe responder dentro del límite de una función web.
 
 ## Reglas de Firestore
 

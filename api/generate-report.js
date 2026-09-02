@@ -9,8 +9,9 @@ import { buildPiatRevisionReportPrompt } from "../src/report-writing-guides.js";
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
 const MAX_CONTEXT_LENGTH = 500000;
+export const GEMINI_REPORT_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_REPORT_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
+  `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_REPORT_MODEL}:generateContent`;
 const GEMINI_MAX_ATTEMPTS = 3;
 const GEMINI_REQUEST_TIMEOUT_MS = 50000;
 const GEMINI_REPORT_MAX_OUTPUT_TOKENS = 4096;
