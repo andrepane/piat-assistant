@@ -5,6 +5,7 @@ import {
   buildProfessionalConfirmation,
   buildPiatRevisionContext,
   getPreviousPiatObjectives,
+  getReportResponseErrorMessage,
   hasExpectedReportShape,
   minimizeClinicalData,
   PIAT_REVISION_SECTIONS
@@ -138,4 +139,10 @@ test("la confirmación profesional exige clasificar todos los objetivos", () => 
     actualizacionClinica: { comunicacion_lenguaje: "Utiliza frases de tres elementos." },
     confirmadoPorProfesional: true
   });
+});
+
+test("explica los errores de infraestructura aunque Vercel no devuelva JSON", () => {
+  assert.match(getReportResponseErrorMessage(504), /ha tardado demasiado/i);
+  assert.match(getReportResponseErrorMessage(503), /temporalmente saturado/i);
+  assert.match(getReportResponseErrorMessage(500), /no ha podido generar/i);
 });

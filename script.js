@@ -54,6 +54,7 @@ import {
   buildPiatRevisionContext,
   CLINICAL_UPDATE_FIELDS,
   getPreviousPiatObjectives,
+  getReportResponseErrorMessage,
   OBJECTIVE_REVIEW_STATUS,
   PIAT_REVISION_SECTIONS,
   REPORT_STATUS,
@@ -1665,13 +1666,18 @@ reportPreparationForm.addEventListener("submit", async (event) => {
       body: JSON.stringify({ type: REPORT_TYPE.PIAT_REVISION, context })
     });
     const responseText = await response.text();
-    let generatedReport;
+    let generatedReport = null;
     try {
       generatedReport = JSON.parse(responseText);
     } catch {
+      // Vercel puede devolver HTML cuando interrumpe una función por tiempo agotado.
+    }
+    if (!response.ok) {
+      throw new Error(generatedReport?.error || getReportResponseErrorMessage(response.status));
+    }
+    if (!generatedReport) {
       throw new Error("El servidor devolvió una respuesta de informe no válida.");
     }
-    if (!response.ok) throw new Error(generatedReport.error || "No se ha podido generar el informe.");
 
     const patientRef = doc(db, "patients", preparation.patientId);
     const reportRef = doc(collection(patientRef, "reports"));

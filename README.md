@@ -83,6 +83,8 @@ Configurar las variables indicadas en `.env.example`:
 
 El endpoint exige un ID token válido de Firebase Authentication y nunca recibe la contraseña del
 usuario.
+La función de generación dispone de 60 segundos en Vercel y cancela internamente la llamada a
+Gemini antes de ese límite para devolver un error legible sin perder la preparación clínica.
 
 ## Reglas de Firestore
 

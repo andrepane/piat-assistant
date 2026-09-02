@@ -11,11 +11,15 @@ const MAX_CONTEXT_LENGTH = 500000;
 const GEMINI_REPORT_URL =
   "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent";
 const GEMINI_MAX_ATTEMPTS = 3;
+const GEMINI_REQUEST_TIMEOUT_MS = 50000;
 const FIREBASE_JWKS = createRemoteJWKSet(
   new URL("https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com")
 );
 
-export const config = { api: { bodyParser: { sizeLimit: "1mb" } } };
+export const config = {
+  maxDuration: 60,
+  api: { bodyParser: { sizeLimit: "1mb" } }
+};
 
 async function authenticateRequest(req) {
   const match = (req.headers.authorization || "").match(/^Bearer\s+(.+)$/i);
@@ -76,27 +80,34 @@ function wait(milliseconds) {
 }
 
 async function requestGeminiReport(body) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GEMINI_REQUEST_TIMEOUT_MS);
   let response;
-  for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
-    response = await fetch(GEMINI_REPORT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": process.env.GEMINI_API_KEY
-      },
-      body
-    });
-    if (response.ok || !isRetryableGeminiStatus(response.status) || attempt === GEMINI_MAX_ATTEMPTS) {
-      return response;
+  try {
+    for (let attempt = 1; attempt <= GEMINI_MAX_ATTEMPTS; attempt += 1) {
+      response = await fetch(GEMINI_REPORT_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": process.env.GEMINI_API_KEY
+        },
+        body,
+        signal: controller.signal
+      });
+      if (response.ok || !isRetryableGeminiStatus(response.status) || attempt === GEMINI_MAX_ATTEMPTS) {
+        return response;
+      }
+      const retryAfterSeconds = Number(response.headers.get("retry-after"));
+      const backoff = Number.isFinite(retryAfterSeconds)
+        ? Math.min(retryAfterSeconds * 1000, 5000)
+        : 750 * (2 ** (attempt - 1));
+      console.warn(`Gemini report attempt ${attempt} failed with ${response.status}; retrying.`);
+      await wait(backoff);
     }
-    const retryAfterSeconds = Number(response.headers.get("retry-after"));
-    const backoff = Number.isFinite(retryAfterSeconds)
-      ? Math.min(retryAfterSeconds * 1000, 5000)
-      : 750 * (2 ** (attempt - 1));
-    console.warn(`Gemini report attempt ${attempt} failed with ${response.status}; retrying.`);
-    await wait(backoff);
+    return response;
+  } finally {
+    clearTimeout(timeout);
   }
-  return response;
 }
 
 export default async function handler(req, res) {
@@ -152,6 +163,13 @@ export default async function handler(req, res) {
     return res.status(200).json(report);
   } catch (error) {
     console.error("Report generation failed:", error);
+    if (error?.name === "AbortError") {
+      return res.status(504).json({
+        error: "Gemini ha tardado demasiado en generar el informe. Vuelve a intentarlo.",
+        code: "GEMINI_TIMEOUT",
+        retryable: true
+      });
+    }
     return res.status(500).json({ error: "Error interno al generar el informe" });
   }
 }
