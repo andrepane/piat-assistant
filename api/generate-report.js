@@ -4,6 +4,7 @@ import {
   PIAT_REVISION_SECTIONS,
   REPORT_TYPE
 } from "../src/report-model.js";
+import { buildPiatRevisionReportPrompt } from "../src/report-writing-guides.js";
 
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "piat-assistant";
 const MAX_CONTEXT_LENGTH = 500000;
@@ -117,28 +118,7 @@ export default async function handler(req, res) {
       titulo,
       contenido: ""
     }));
-    const prompt = `
-Redacta un borrador profesional de PIAT de revisión de Atención Temprana a partir del contexto clínico anonimizado proporcionado.
-
-REGLAS OBLIGATORIAS:
-- No inventes datos, resultados, sesiones, recursos ni evolución.
-- El contexto contiene una ficha consolidada, documentos con su extracción revisada y un historial de cambios.
-- Distingue siempre la situación descrita en el PIAT anterior de los resultados de evaluaciones posteriores.
-- Basa cada afirmación sobre evolución en diferencias explícitas entre fuentes o en cambios confirmados.
-- Si no hay evidencia comparable, describe el funcionamiento actual sin afirmar mejoría, empeoramiento ni consecución.
-- En "Exploración y pruebas", identifica cada evaluación disponible e incluye sus resultados relevantes por áreas cuando consten.
-- Solo clasifica un objetivo como conseguido si era anterior y existe evidencia posterior suficiente de cumplimiento.
-- Mantén en "Objetivos en proceso" los objetivos anteriores que continúan; reserva "Objetivos propuestos" para necesidades nuevas o reformulaciones justificadas.
-- No conviertas la ausencia de información en afirmaciones negativas como "no presenta" o "no existen".
-- Si no existe información suficiente para una sección, escribe exactamente: "Sin información suficiente para redactar esta sección."
-- No incluyas nombres, NH, fechas de nacimiento exactas, centros ni profesionales identificables.
-- Usa lenguaje clínico claro, respetuoso, centrado en el menor y comprensible para la familia.
-- Los objetivos deben ser funcionales y estar basados exclusivamente en necesidades presentes en los datos.
-- Redacta directamente el contenido clínico de cada apartado.
-- No incluyas avisos, notas, aclaraciones sobre la IA ni frases que indiquen que es un borrador.
-- Devuelve únicamente JSON válido con esta estructura y en este orden:
-${JSON.stringify({ titulo: "Plan de Intervención de Atención Temprana de Revisión", secciones: sectionSchema })}
-`;
+    const prompt = buildPiatRevisionReportPrompt(PIAT_REVISION_SECTIONS, sectionSchema);
 
     const response = await requestGeminiReport(JSON.stringify({
       contents: [{ parts: [

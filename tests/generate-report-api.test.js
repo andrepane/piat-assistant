@@ -6,6 +6,12 @@ import {
   isRetryableGeminiStatus,
   isSupportedReportRequest
 } from "../api/generate-report.js";
+import { PIAT_REVISION_SECTIONS } from "../src/report-model.js";
+import {
+  buildPiatRevisionReportPrompt,
+  buildPiatRevisionWritingGuide,
+  PIAT_REVISION_WRITING_GUIDES
+} from "../src/report-writing-guides.js";
 
 test("solo admite PIAT de revisión con contexto clínico", () => {
   assert.equal(isSupportedReportRequest("piat_revision", { fichaActual: {} }), true);
@@ -28,4 +34,28 @@ test("devuelve al usuario un motivo útil sin exponer la respuesta interna de Ge
   });
   assert.equal(getGeminiReportError(503).code, "GEMINI_TEMPORARILY_UNAVAILABLE");
   assert.equal(getGeminiReportError(403).code, "GEMINI_CONFIGURATION_ERROR");
+});
+
+test("cada apartado del PIAT tiene una guía y un modelo de redacción", () => {
+  const expectedIds = PIAT_REVISION_SECTIONS.map(([id]) => id);
+  assert.deepEqual(Object.keys(PIAT_REVISION_WRITING_GUIDES), expectedIds);
+  expectedIds.forEach((id) => {
+    const item = PIAT_REVISION_WRITING_GUIDES[id];
+    assert.ok(item.buscar);
+    assert.ok(item.redactar);
+    assert.ok(item.evitar);
+    assert.ok(item.modelo);
+  });
+});
+
+test("el prompt aplica modelos anonimizados sin reutilizar sus hechos clínicos", () => {
+  const schema = PIAT_REVISION_SECTIONS.map(([id, titulo]) => ({ id, titulo, contenido: "" }));
+  const prompt = buildPiatRevisionReportPrompt(PIAT_REVISION_SECTIONS, schema);
+  assert.match(prompt, /GUÍAS ESPECÍFICAS Y MODELOS ANONIMIZADOS POR APARTADO/);
+  assert.match(prompt, /nunca copies sus hechos clínicos/i);
+  assert.match(prompt, /No conviertas la ausencia de un dato en una negación clínica/i);
+  assert.match(prompt, /Afirmar evolución favorable solo porque sube la PD/i);
+  assert.equal((prompt.match(/MODELO DE ESTILO/g) || []).length, PIAT_REVISION_SECTIONS.length);
+  assert.doesNotMatch(prompt, /Alejandro|Andrea Panepinto|Neurointegra|2318/);
+  assert.ok(buildPiatRevisionWritingGuide(PIAT_REVISION_SECTIONS).length > 1000);
 });
