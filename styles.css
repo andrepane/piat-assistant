@@ -506,8 +506,86 @@ button:hover {
 }
 
 #patientReportsStatus,
+#reportPreparationStatus,
 #reportEditorStatus {
   color: #4b5563;
+}
+
+.report-preparation {
+  margin: 20px 0 26px;
+  padding: 22px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.report-preparation-heading h4,
+.report-preparation-heading p {
+  margin: 0;
+}
+
+.report-preparation-heading p {
+  margin-top: 6px;
+  color: #64748b;
+}
+
+.report-preparation fieldset {
+  margin: 22px 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.report-preparation legend {
+  color: #173b58;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.objective-review-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.objective-review-row p {
+  margin: 0;
+}
+
+.clinical-update-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.clinical-update-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.clinical-update-field textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+.report-privacy-confirmation {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+
+.report-privacy-confirmation input {
+  margin-top: 3px;
 }
 
 .local-export-notice {
@@ -595,6 +673,11 @@ button:hover {
   }
 
   .document-contribution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .objective-review-row,
+  .clinical-update-grid {
     grid-template-columns: 1fr;
   }
 

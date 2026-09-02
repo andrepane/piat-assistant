@@ -168,6 +168,34 @@
             <button id="generatePiatRevisionButton" type="button">+ Generar PIAT de revisión</button>
           </div>
           <p id="patientReportsStatus" role="status"></p>
+          <form id="reportPreparationForm" class="report-preparation" hidden>
+            <div class="report-preparation-heading">
+              <h4>Actualizar información para el nuevo PIAT</h4>
+              <p>Confirma la evolución clínica antes de que Gemini redacte el informe.</p>
+            </div>
+
+            <fieldset>
+              <legend>Objetivos del PIAT anterior</legend>
+              <p class="section-description">Clasifica todos los objetivos. Gemini respetará estas decisiones.</p>
+              <div id="previousObjectivesReview"></div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Funcionamiento actual</legend>
+              <p class="section-description">Añade solamente novedades relevantes. Puedes dejar apartados vacíos.</p>
+              <div id="clinicalUpdateFields" class="clinical-update-grid"></div>
+            </fieldset>
+
+            <label class="report-privacy-confirmation">
+              <input id="reportClinicalPrivacyConfirmation" type="checkbox">
+              He comprobado que estas notas no contienen nombre, NH ni otros identificadores directos.
+            </label>
+            <div class="actions">
+              <button id="cancelReportPreparationButton" type="button" class="secondary-button">Cancelar</button>
+              <button id="confirmReportGenerationButton" type="submit">Generar borrador</button>
+            </div>
+            <p id="reportPreparationStatus" role="status"></p>
+          </form>
           <div id="patientReportsList"></div>
         </section>
       </section>

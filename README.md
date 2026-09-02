@@ -62,6 +62,10 @@ resultado siempre requiere revisión profesional antes de su uso.
 La redacción del PIAT de revisión aplica una guía clínica y un modelo de estilo anonimizado
 distinto para cada apartado. Estos modelos se han derivado de PIAT profesionales, enseñan la
 estructura y el registro esperados y no contienen datos reales ni actúan como fuente clínica.
+Antes de generar, el profesional debe clasificar cada objetivo del PIAT anterior como conseguido,
+en proceso o descartado y puede añadir una actualización breve de comunicación, atención, conducta,
+autonomía, familia, salud y escolarización. Estas decisiones se guardan con el borrador, se envían
+anonimizadas y Gemini no puede reclasificarlas.
 
 - Estados del paciente: `activo`, `alta`, `archivado`.
 - Estados de análisis: `pendiente`, `procesando`, `revisado`, `error`.
